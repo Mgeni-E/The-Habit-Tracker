@@ -23,11 +23,17 @@ jobs:
           pip install -r requirements.txt
 
       - name: Lint with flake8
+        working-directory: habit-tracker
         run: |
           echo "Running flake8..."
           flake8 app tests
+          echo "Linting completed."
 
       - name: Run unit tests
+        working-directory: habit-tracker
+        env:
+            PYTHONPATH: .
         run: |
           echo "Running pytest..."
           pytest tests
+          echo "Unit tests completed."
