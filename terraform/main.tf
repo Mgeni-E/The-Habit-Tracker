@@ -57,13 +57,21 @@ resource "random_password" "admin_password" {
 }
 
 # =============================================================================
-# Resource Group
+# Azure Resource Group
 # =============================================================================
 
 resource "azurerm_resource_group" "main" {
   name     = "${var.project_name}-${var.environment}-rg"
   location = var.location
   tags     = local.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes = [
+      tags["CreatedDate"],
+      tags["LastModified"]
+    ]
+  }
 }
 
 # =============================================================================
@@ -76,6 +84,14 @@ resource "azurerm_virtual_network" "main" {
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   tags                = local.common_tags
+
+  lifecycle {
+    prevent_destroy = true
+    ignore_changes = [
+      tags["CreatedDate"],
+      tags["LastModified"]
+    ]
+  }
 }
 
 resource "azurerm_subnet" "web" {
@@ -90,7 +106,7 @@ resource "azurerm_subnet" "database" {
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.0.2.0/24"]
-  
+
   delegation {
     name = "fs"
     service_delegation {
@@ -234,14 +250,14 @@ resource "azurerm_linux_virtual_machine" "main" {
   }
 
   custom_data = base64encode(templatefile("${path.module}/scripts/cloud-init.yml", {
-    admin_username   = var.admin_username
-    domain_name      = var.domain_name
-    CONTAINER_IMAGE  = var.container_image_name
-    SECRET_KEY       = var.flask_secret_key
-    DB_HOST          = azurerm_postgresql_flexible_server.main.fqdn
-    DB_PORT          = "5432"
-    DB_NAME          = var.db_name
-    DB_USER          = var.db_admin_username
-    DB_PASSWORD      = random_password.db_password.result
+    admin_username  = var.admin_username
+    domain_name     = var.domain_name
+    CONTAINER_IMAGE = var.container_image_name
+    SECRET_KEY      = var.flask_secret_key
+    DB_HOST         = azurerm_postgresql_flexible_server.main.fqdn
+    DB_PORT         = "5432"
+    DB_NAME         = var.db_name
+    DB_USER         = var.db_admin_username
+    DB_PASSWORD     = random_password.db_password.result
   }))
 }
