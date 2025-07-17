@@ -382,8 +382,11 @@ jobs:
           EOF
 
       - name: Setup SSL Certificate (if domain configured)
-        if: ${{ secrets.DOMAIN_NAME != '' }}
         run: |
+          if [ -z "${{ secrets.DOMAIN_NAME }}" ]; then
+            echo "DOMAIN_NAME secret is not set. Skipping SSL setup."
+            exit 0
+          fi
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no azureuser@${{ needs.terraform-apply.outputs.vm_ip }} << 'EOF'
             # Update Nginx configuration with domain
             sudo sed -i "s/server_name _;/server_name ${{ secrets.DOMAIN_NAME }};/g" /etc/nginx/sites-available/habit-tracker
