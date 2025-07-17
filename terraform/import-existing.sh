@@ -46,9 +46,11 @@ log_info "Subscription ID: $SUBSCRIPTION_ID"
 # Resource names
 RG_NAME="${PROJECT_NAME}-${ENVIRONMENT}-rg"
 VNET_NAME="${PROJECT_NAME}-${ENVIRONMENT}-vnet"
+WEB_SUBNET_NAME="web-subnet"
 PIP_NAME="${PROJECT_NAME}-${ENVIRONMENT}-pip"
 NSG_NAME="${PROJECT_NAME}-${ENVIRONMENT}-web-nsg"
-DNS_ZONE_NAME="${PROJECT_NAME}-${ENVIRONMENT}-postgres.private.postgres.database.azure.com"
+NIC_NAME="${PROJECT_NAME}-${ENVIRONMENT}-nic"
+VM_NAME="${PROJECT_NAME}-${ENVIRONMENT}-vm"
 
 # Function to check if resource exists in Azure
 resource_exists() {
@@ -63,14 +65,21 @@ resource_exists() {
         "vnet")
             az network vnet show --name "$resource_name" --resource-group "$resource_group" >/dev/null 2>&1
             ;;
+        "subnet")
+            local vnet_name=$4
+            az network vnet subnet show --name "$resource_name" --vnet-name "$vnet_name" --resource-group "$resource_group" >/dev/null 2>&1
+            ;;
         "pip")
             az network public-ip show --name "$resource_name" --resource-group "$resource_group" >/dev/null 2>&1
             ;;
         "nsg")
             az network nsg show --name "$resource_name" --resource-group "$resource_group" >/dev/null 2>&1
             ;;
-        "dns")
-            az network private-dns zone show --name "$resource_name" --resource-group "$resource_group" >/dev/null 2>&1
+        "nic")
+            az network nic show --name "$resource_name" --resource-group "$resource_group" >/dev/null 2>&1
+            ;;
+        "vm")
+            az vm show --name "$resource_name" --resource-group "$resource_group" >/dev/null 2>&1
             ;;
         *)
             return 1
@@ -91,15 +100,16 @@ import_if_needed() {
     local terraform_address=$3
     local azure_resource_id=$4
     local resource_group=${5:-""}
-    
+    local vnet_name=${6:-""}
+
     # Check if already in Terraform state
     if in_terraform_state "$terraform_address"; then
         log_info "✅ $terraform_address already in Terraform state"
         return 0
     fi
-    
+
     # Check if exists in Azure
-    if resource_exists "$resource_type" "$resource_name" "$resource_group"; then
+    if resource_exists "$resource_type" "$resource_name" "$resource_group" "$vnet_name"; then
         log_warning "🔄 Found existing $resource_name in Azure, importing to Terraform state..."
         if terraform import "$terraform_address" "$azure_resource_id"; then
             log_success "✅ Successfully imported $terraform_address"
@@ -124,18 +134,33 @@ if resource_exists "rg" "$RG_NAME"; then
     import_if_needed "vnet" "$VNET_NAME" "azurerm_virtual_network.main" \
         "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/virtualNetworks/$VNET_NAME" \
         "$RG_NAME"
-    
-    # 3. Public IP
+
+    # 3. Web Subnet (only if virtual network exists)
+    if resource_exists "vnet" "$VNET_NAME" "$RG_NAME"; then
+        import_if_needed "subnet" "$WEB_SUBNET_NAME" "azurerm_subnet.web" \
+            "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/virtualNetworks/$VNET_NAME/subnets/$WEB_SUBNET_NAME" \
+            "$RG_NAME" "$VNET_NAME"
+    fi
+
+    # 4. Public IP
     import_if_needed "pip" "$PIP_NAME" "azurerm_public_ip.main" \
         "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/publicIPAddresses/$PIP_NAME" \
         "$RG_NAME"
-    
-    # 4. Network Security Group
+
+    # 5. Network Security Group
     import_if_needed "nsg" "$NSG_NAME" "azurerm_network_security_group.web" \
         "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/networkSecurityGroups/$NSG_NAME" \
         "$RG_NAME"
-    
-    # Note: Private DNS Zone import removed - using Docker PostgreSQL instead
+
+    # 6. Network Interface
+    import_if_needed "nic" "$NIC_NAME" "azurerm_network_interface.main" \
+        "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/networkInterfaces/$NIC_NAME" \
+        "$RG_NAME"
+
+    # 7. Virtual Machine
+    import_if_needed "vm" "$VM_NAME" "azurerm_linux_virtual_machine.main" \
+        "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Compute/virtualMachines/$VM_NAME" \
+        "$RG_NAME"
 fi
 
 log_success "🎉 Import process completed!"
