@@ -238,10 +238,10 @@ resource "azurerm_linux_virtual_machine" "main" {
     domain_name      = var.domain_name
     CONTAINER_IMAGE  = var.container_image_name
     SECRET_KEY       = var.flask_secret_key
-    DB_HOST          = var.db_host
-    DB_PORT          = var.db_port
+    DB_HOST          = azurerm_postgresql_flexible_server.main.fqdn
+    DB_PORT          = "5432"
     DB_NAME          = var.db_name
     DB_USER          = var.db_admin_username
-    DB_PASSWORD      = var.db_admin_password
+    DB_PASSWORD      = random_password.db_password.result
   }))
 }
