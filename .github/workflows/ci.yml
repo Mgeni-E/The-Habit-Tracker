@@ -97,7 +97,7 @@ jobs:
   terraform-plan:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     steps:
       - name: Checkout code
@@ -132,7 +132,7 @@ jobs:
 
       - name: Comment PR with Terraform Plan
         uses: actions/github-script@v7
-        if: github.event_name == 'pull_request'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
         with:
           script: |
             const fs = require('fs');
@@ -170,7 +170,7 @@ jobs:
   terraform-apply:
     needs: [docker-build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     environment: production
 
     outputs:
@@ -219,8 +219,7 @@ jobs:
   deploy:
     needs: terraform-apply
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'    environment: production
 
     steps:
       - name: Checkout code
