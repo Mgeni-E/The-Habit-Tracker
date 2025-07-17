@@ -1,0 +1,51 @@
+/* Custom styles for Habit Tracker */
+
+body {
+  background-color: #f8f9fa;
+}
+
+.navbar-brand {
+  font-weight: bold;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.habit-card {
+  margin-bottom: 1rem;
+}
+
+.progress {
+  height: 0.5rem;
+}
+
+.btn-complete {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.btn-complete:hover {
+  background-color: #218838;
+  border-color: #1e7e34;
+}
+
+.streak-badge {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.completion-date {
+  background-color: #e9ecef;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  margin: 0.125rem;
+  display: inline-block;
+  font-size: 0.875rem;
+}
