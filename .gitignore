@@ -1,7 +1,43 @@
+# =============================================================================
+# Python
+# =============================================================================
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 htmlcov/
@@ -13,18 +49,374 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
+*.py,cover
 .hypothesis/
 .pytest_cache/
 .pyre/
 
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
 # Environments
 .env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# =============================================================================
+# Terraform
+# =============================================================================
+
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude sensitive .tfvars files (keep environment configs)
+*.auto.tfvars
+*.auto.tfvars.json
+*secret*.tfvars
+*password*.tfvars
+*credentials*.tfvars
+local.tfvars
+personal.tfvars
+
+# Ignore override files as they are usually used to override resources locally
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include override files you do wish to add to version control using negated pattern
+# !example_override.tf
+
+# Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
+*.tfplan
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# Terraform lock file (comment out if you want to commit it)
+.terraform.lock.hcl
+
+# =============================================================================
+# Docker
+# =============================================================================
+
+# Docker build context
+.dockerignore
+
+# Docker volumes
+docker-volumes/
+volumes/
+
+# Docker Compose override files
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# =============================================================================
+# IDE and Editors
+# =============================================================================
 
 # PyCharm
 .idea/
+*.iws
+*.iml
+*.ipr
 
 # VS Code
 .vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# =============================================================================
+# Operating System
+# =============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# =============================================================================
+# Application Specific
+# =============================================================================
+
+# Flask instance folder
+instance/
+
+# Application logs
+logs/
+*.log
+app.log
+error.log
+access.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Application data
+data/
+uploads/
+downloads/
+
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# =============================================================================
+# Security and Secrets
+# =============================================================================
+
+# Environment files with secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
+
+# Secret files
+secrets/
+*.secret
+*.secrets
+*secret*
+*password*
+*credentials*
+
+# SSH keys
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.ppk
+
+# Azure credentials
+azure-credentials.json
+.azure/
+
+# AWS credentials
+.aws/
+
+# Google Cloud credentials
+*.json
+service-account*.json
+gcloud-service-key.json
+
+# =============================================================================
+# Build and Deployment
+# =============================================================================
+
+# Build artifacts
+build/
+dist/
+out/
+
+# Node.js (if using any JS tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# =============================================================================
+# Monitoring and Profiling
+# =============================================================================
+
+# Performance monitoring
+*.prof
+*.pstats
+
+# Memory dumps
+*.hprof
+*.dump
+
+# =============================================================================
+# Custom Project Ignores
+# =============================================================================
+
+# Habit Tracker specific
+habit-tracker/instance/
+habit-tracker/logs/
+habit-tracker/uploads/
+
+# Local development overrides
+docker-compose.local.yml
+local.env
+
+# Deployment artifacts
+deployment/
+.deployment/
+
+# Health check temporary files
+health-check-*.tmp
+
+# SSL setup temporary files
+ssl-setup-*.tmp
+
+# =============================================================================
+# Keep Important Files (Negated Patterns)
+# =============================================================================
+
+# Keep environment template files
+!.env.example
+!.env.template
+
+# Keep Terraform environment configs and examples
+!terraform/environments/*.tfvars
+!terraform/environments/*.tfvars.example
+
+# Keep important documentation
+!README.md
+!docs/
+!*.md
