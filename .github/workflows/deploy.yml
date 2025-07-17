@@ -31,6 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     environment: production
+    env:
+      VM_IP: ${{ inputs.vm_ip }}
+      SSH_PRIVATE_KEY: ${{ inputs.ssh_private_key }}
 
     steps:
       - name: Checkout code
@@ -43,25 +46,22 @@ jobs:
 
       - name: Setup SSH key
         run: |
-          VM_IP="${{ inputs.vm_ip }}"
-          SSH_KEY="${{ inputs.ssh_private_key }}"
-
           if [ -z "$VM_IP" ]; then
             echo "❌ VM IP is empty. Terraform apply may have failed."
             exit 1
           fi
 
-          if [ -z "$SSH_KEY" ]; then
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
             echo "❌ SSH private key is empty. Terraform apply may have failed."
             exit 1
           fi
 
           echo "✅ VM IP: $VM_IP"
-          echo "✅ SSH key length: $(echo "$SSH_KEY" | wc -c) characters"
+          echo "✅ SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
 
           # Setup SSH directory and key
           mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           chmod 700 ~/.ssh
 
@@ -79,42 +79,7 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-          # Wait for VM SSH service to be ready
-          echo "⏳ Waiting for VM SSH service to be ready..."
-          for i in {1..20}; do
-            if timeout 10 ssh -o ConnectTimeout=10 -o BatchMode=yes vm "echo 'SSH connection successful'" 2>/dev/null; then
-              echo "✅ SSH connection successful on attempt $i"
-              break
-            else
-              echo "⏳ SSH not ready yet, retrying in 15 seconds... (attempt $i/20)"
-              if [ $i -eq 20 ]; then
-                echo "❌ SSH connection failed after 20 attempts"
-                echo "🔍 Debugging information:"
-                echo "VM IP: $VM_IP"
-                echo "Testing basic connectivity..."
-                timeout 5 nc -zv "$VM_IP" 22 || echo "Port 22 not reachable"
-                exit 1
-              fi
-              sleep 15
-            fi
-          done
-
-          # Wait for VM initialization to complete
-          echo "⏳ Waiting for VM initialization to complete..."
-          for i in {1..15}; do
-            if ssh vm "test -f /tmp/vm-ready" 2>/dev/null; then
-              echo "✅ VM initialization completed"
-              ssh vm "cat /tmp/vm-ready"
-              break
-            else
-              echo "⏳ VM still initializing... (attempt $i/15)"
-              if [ $i -eq 15 ]; then
-                echo "⚠️ VM initialization check timed out, but proceeding..."
-                break
-              fi
-              sleep 20
-            fi
-          done
+          echo "✅ VM is ready (verified by terraform-apply stage)"
 
       - name: Create deployment environment file
         run: |
@@ -185,37 +150,6 @@ jobs:
             curl -f http://localhost:5000/ || exit 1
             echo "✅ Application deployed successfully with Docker Compose!"
           EOF
-
-      - name: Setup SSL Certificate (if domain configured)
-        run: |
-          if [ -z "${{ secrets.TF_VAR_DOMAIN_NAME }}" ]; then
-            echo "TF_VAR_DOMAIN_NAME secret is not set. Skipping SSL setup."
-            exit 0
-          fi
-          echo "🔒 Setting up SSL certificate..."
-          ssh vm << 'EOF'
-            sudo sed -i "s/server_name _;/server_name ${{ secrets.TF_VAR_DOMAIN_NAME }};/g" /etc/nginx/sites-available/habit-tracker
-            sudo nginx -t
-            sudo systemctl reload nginx
-            sudo certbot --nginx -d ${{ secrets.TF_VAR_DOMAIN_NAME }} --email ${{ secrets.TF_VAR_SSL_EMAIL }} --agree-tos --non-interactive
-            echo "SSL certificate configured successfully!"
-          EOF
-
-      - name: Verify deployment
-        run: |
-          VM_IP=${{ inputs.vm_ip }}
-          echo "Testing HTTP redirect..."
-          curl -I http://$VM_IP | grep -q "301\|302" || echo "Warning: HTTP redirect not working"
-          echo "Testing application health..."
-          curl -f http://$VM_IP/ || curl -f https://$VM_IP/ || {
-            echo "Application health check failed"
-            exit 1
-          }
-          echo "Deployment verification completed successfully!"
-          echo "Application is available at: http://$VM_IP"
-          if [ -n "${{ secrets.TF_VAR_DOMAIN_NAME }}" ]; then
-            echo "Domain URL: https://${{ secrets.TF_VAR_DOMAIN_NAME }}"
-          fi
 
       - name: Cleanup
         if: always()
