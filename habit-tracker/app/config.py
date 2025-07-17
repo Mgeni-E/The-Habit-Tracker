@@ -1,5 +1,8 @@
 import os
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 class Config:
     """Base configuration class."""
@@ -17,11 +20,11 @@ class DevelopmentConfig(Config):
 
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = (
-        f"postgresql://{os.environ.get('DB_USER', 'habit_user')}:"
-        f"{os.environ.get('DB_PASSWORD', 'habit_password')}@"
-        f"{os.environ.get('DB_HOST', 'localhost')}:"
-        f"{os.environ.get('DB_PORT', '5432')}/"
-        f"{os.environ.get('DB_NAME', 'habit_tracker')}"
+        f"postgresql://{os.environ.get('DB_USER')}:"
+        f"{os.environ.get('DB_PASSWORD')}@"
+        f"{os.environ.get('DB_HOST')}:"
+        f"{os.environ.get('DB_PORT')}/"
+        f"{os.environ.get('DB_NAME')}"
     )
 
 
@@ -38,23 +41,9 @@ class ProductionConfig(Config):
     )
 
 
-class TestingConfig(Config):
-    """Testing configuration."""
-
-    TESTING = True
-    SQLALCHEMY_DATABASE_URI = (
-        f"postgresql://{os.environ.get('DB_USER', 'test_user')}:"
-        f"{os.environ.get('DB_PASSWORD', 'test_password')}@"
-        f"{os.environ.get('DB_HOST', 'localhost')}:"
-        f"{os.environ.get('DB_PORT', '5432')}/"
-        f"{os.environ.get('DB_NAME', 'habit_tracker_test')}"
-    )
-
-
 # Configuration dictionary
 config = {
     "development": DevelopmentConfig,
     "production": ProductionConfig,
-    "testing": TestingConfig,
     "default": DevelopmentConfig,
 }
