@@ -219,7 +219,8 @@ jobs:
   deploy:
     needs: terraform-apply
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'    environment: production
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment: production
 
     steps:
       - name: Checkout code
