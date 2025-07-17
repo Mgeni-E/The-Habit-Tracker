@@ -161,6 +161,10 @@ write_files:
     owner: ${admin_username}:${admin_username}
 
 runcmd:
+  # Update system first
+  - apt-get update
+  - apt-get upgrade -y
+
   # Install Docker
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
@@ -201,6 +205,14 @@ runcmd:
   # Create log directories
   - mkdir -p /var/log/habit-tracker
   - chown appuser:appuser /var/log/habit-tracker
+
+  # Create readiness indicator file
+  - echo "VM initialization completed at $(date)" > /tmp/vm-ready
+  - chmod 644 /tmp/vm-ready
+
+  # Ensure SSH service is running and ready
+  - systemctl restart ssh
+  - systemctl enable ssh
 
   # Set up log rotation
   - |

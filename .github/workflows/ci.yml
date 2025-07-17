@@ -442,23 +442,60 @@ jobs:
           echo "✅ VM IP: $VM_IP"
           echo "✅ SSH key length: $(echo "$SSH_KEY" | wc -c) characters"
 
+          # Setup SSH directory and key
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          chmod 700 ~/.ssh
 
-          # Wait for VM to be ready and scan SSH keys with retry
-          echo "Waiting for VM to be ready..."
-          for i in {1..10}; do
-            if ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts 2>/dev/null; then
-              echo "✅ SSH keyscan successful on attempt $i"
+          # Create SSH config for better connection handling
+          cat > ~/.ssh/config << EOF
+          Host vm
+            HostName $VM_IP
+            User azureuser
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+            ConnectTimeout 30
+          EOF
+          chmod 600 ~/.ssh/config
+
+          # Wait for VM SSH service to be ready
+          echo "⏳ Waiting for VM SSH service to be ready..."
+          for i in {1..20}; do
+            if timeout 10 ssh -o ConnectTimeout=10 -o BatchMode=yes vm "echo 'SSH connection successful'" 2>/dev/null; then
+              echo "✅ SSH connection successful on attempt $i"
               break
             else
-              echo "⏳ SSH keyscan failed, retrying in 30 seconds... (attempt $i/10)"
-              if [ $i -eq 10 ]; then
-                echo "❌ SSH keyscan failed after 10 attempts"
+              echo "⏳ SSH not ready yet, retrying in 15 seconds... (attempt $i/20)"
+              if [ $i -eq 20 ]; then
+                echo "❌ SSH connection failed after 20 attempts"
+                echo "🔍 Debugging information:"
+                echo "VM IP: $VM_IP"
+                echo "Testing basic connectivity..."
+                timeout 5 nc -zv "$VM_IP" 22 || echo "Port 22 not reachable"
                 exit 1
               fi
-              sleep 30
+              sleep 15
+            fi
+          done
+
+          # Wait for VM initialization to complete
+          echo "⏳ Waiting for VM initialization to complete..."
+          for i in {1..15}; do
+            if ssh vm "test -f /tmp/vm-ready" 2>/dev/null; then
+              echo "✅ VM initialization completed"
+              ssh vm "cat /tmp/vm-ready"
+              break
+            else
+              echo "⏳ VM still initializing... (attempt $i/15)"
+              if [ $i -eq 15 ]; then
+                echo "⚠️ VM initialization check timed out, but proceeding..."
+                break
+              fi
+              sleep 20
             fi
           done
 
@@ -490,14 +527,17 @@ jobs:
 
       - name: Copy deployment files to VM
         run: |
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no .env.prod azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no docker-compose.yml azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no docker-compose.prod.yml azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no scripts/init-db.sql azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
+          echo "📁 Copying deployment files to VM..."
+          scp .env.prod vm:/tmp/
+          scp docker-compose.yml vm:/tmp/
+          scp docker-compose.prod.yml vm:/tmp/
+          scp scripts/init-db.sql vm:/tmp/
+          echo "✅ Files copied successfully"
 
       - name: Deploy application with Docker Compose
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no azureuser@${{ needs.terraform-apply.outputs.vm_ip }} << 'EOF'
+          echo "🚀 Starting deployment on VM..."
+          ssh vm << 'EOF'
             # Setup deployment directory
             sudo mkdir -p /opt/habit-tracker
             sudo cp /tmp/.env.prod /opt/habit-tracker/
@@ -543,7 +583,8 @@ jobs:
             echo "TF_VAR_DOMAIN_NAME secret is not set. Skipping SSL setup."
             exit 0
           fi
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no azureuser@${{ needs.terraform-apply.outputs.vm_ip }} << 'EOF'
+          echo "🔒 Setting up SSL certificate..."
+          ssh vm << 'EOF'
             sudo sed -i "s/server_name _;/server_name ${{ secrets.TF_VAR_DOMAIN_NAME }};/g" /etc/nginx/sites-available/habit-tracker
             sudo nginx -t
             sudo systemctl reload nginx
