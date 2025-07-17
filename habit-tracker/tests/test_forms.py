@@ -40,7 +40,7 @@ class TestHabitForm:
         with app.app_context():
             form = HabitForm()
             form.name.data = "Exercise"
-            form.frequency.data = ""
+            form.frequency.data = None  # Set to None instead of ""
             form.start_date.data = date.today()
 
             assert not form.validate()
