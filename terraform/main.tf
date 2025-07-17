@@ -234,8 +234,14 @@ resource "azurerm_linux_virtual_machine" "main" {
   }
 
   custom_data = base64encode(templatefile("${path.module}/scripts/cloud-init.yml", {
-    admin_username = var.admin_username
-    domain_name    = var.domain_name
-    CONTAINER_IMAGE = var.container_image_name
+    admin_username   = var.admin_username
+    domain_name      = var.domain_name
+    CONTAINER_IMAGE  = var.container_image_name
+    SECRET_KEY       = var.flask_secret_key
+    DB_HOST          = var.db_host
+    DB_PORT          = var.db_port
+    DB_NAME          = var.db_name
+    DB_USER          = var.db_admin_username
+    DB_PASSWORD      = var.db_admin_password
   }))
 }
