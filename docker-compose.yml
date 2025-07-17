@@ -1,20 +1,19 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${CONTAINER_IMAGE}
+    container_name: habit-tracker-app
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      FLASK_ENV: production
-      SECRET_KEY: defaultsecretkey123
+      FLASK_ENV: ${FLASK_ENV}
+      SECRET_KEY: ${SECRET_KEY}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: habit_tracker
-      DB_USER: admin
-      DB_PASSWORD: adminpassword
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       PYTHONPATH: /app
       PYTHONUNBUFFERED: 1
     ports:
@@ -34,17 +33,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: habit_tracker
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks:
       - habit-tracker-network
     healthcheck:
       test:
-        ["CMD-SHELL", "pg_isready -U admin -d habit_tracker"]
+        ["CMD-SHELL", "pg_isready -U ${DB_USER} -d habit_tracker"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -57,8 +54,8 @@ services:
     ports:
       - "8080:80"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@gmail.com
-      PGADMIN_DEFAULT_PASSWORD: password
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy

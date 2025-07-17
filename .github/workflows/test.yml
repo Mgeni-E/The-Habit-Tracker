@@ -1,0 +1,35 @@
+name: Run tests
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r habit-tracker/requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          echo "Running flake8..."
+          flake8 habit-tracker/app
+          echo "Linting completed."
+
+      - name: Run unit tests
+        run: |
+          echo "Running pytest with SQLite in-memory..."
+          cd habit-tracker
+          pytest tests -v --cov=app --cov-report=xml
+          echo "Unit tests completed."

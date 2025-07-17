@@ -1,0 +1,149 @@
+name: Terraform Apply
+
+on:
+  workflow_call:
+
+jobs:
+  terraform-apply:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment: production
+
+    outputs:
+      vm_ip: ${{ steps.terraform-output.outputs.vm_ip }}
+      ssh_private_key: ${{ steps.terraform-output.outputs.ssh_private_key }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.0"
+          terraform_wrapper: false
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform
+        env:
+          TF_VAR_flask_secret_key: ${{ secrets.TF_VAR_FLASK_SECRET_KEY }}
+          TF_VAR_domain_name: ${{ secrets.TF_VAR_DOMAIN_NAME }}
+          TF_VAR_ssl_email: ${{ secrets.TF_VAR_SSL_EMAIL }}
+          TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
+          TF_VAR_github_username: ${{ secrets.TF_VAR_GITHUB_USERNAME }}
+          TF_VAR_container_image_name: ${{ secrets.TF_VAR_CONTAINER_IMAGE_NAME }}
+        run: |
+          echo "🚀 Running Terraform apply..."
+          if ! terraform apply -var-file="environments/prod.tfvars" -auto-approve; then
+            echo "❌ Terraform apply failed"
+            exit 1
+          fi
+
+          echo "✅ Terraform apply completed successfully"
+
+          # Verify key resources exist in state
+          echo "📋 Verifying infrastructure state..."
+
+          if ! terraform state show azurerm_public_ip.main >/dev/null 2>&1; then
+            echo "❌ Public IP resource not found in state"
+            exit 1
+          fi
+
+          if ! terraform state show azurerm_linux_virtual_machine.main >/dev/null 2>&1; then
+            echo "❌ Virtual machine resource not found in state"
+            exit 1
+          fi
+
+          echo "✅ Key infrastructure resources verified in state"
+
+          # Show current state for debugging
+          echo "🔍 Current Terraform state:"
+          terraform state list
+
+      - name: Upload Terraform State
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state
+          path: |
+            terraform/terraform.tfstate
+            terraform/.terraform/
+          retention-days: 1
+
+      - name: Wait for VM to be Ready
+        working-directory: terraform
+        run: |
+          echo "⏳ Waiting for VM to be fully provisioned..."
+          VM_IP=$(terraform output -raw public_ip_address 2>/dev/null || echo "")
+
+          if [ -z "$VM_IP" ]; then
+            echo "❌ Could not get VM IP from Terraform output"
+            terraform output
+            exit 1
+          fi
+
+          echo "🔍 VM IP: $VM_IP"
+          echo "⏳ Waiting for VM to respond to ping..."
+
+          # Wait for VM to respond to ping (up to 5 minutes)
+          for i in {1..30}; do
+            if ping -c 1 -W 5 "$VM_IP" >/dev/null 2>&1; then
+              echo "✅ VM is responding to ping (attempt $i)"
+              break
+            else
+              echo "⏳ VM not responding to ping yet... (attempt $i/30)"
+              if [ $i -eq 30 ]; then
+                echo "⚠️ VM not responding to ping after 5 minutes, but continuing..."
+              fi
+              sleep 10
+            fi
+          done
+
+      - name: Get Terraform Outputs
+        id: terraform-output
+        working-directory: terraform
+        run: |
+          echo "🔍 Getting Terraform outputs..."
+
+          # Check if Terraform state exists
+          if [ ! -f "terraform.tfstate" ] && [ ! -f ".terraform/terraform.tfstate" ]; then
+            echo "❌ No Terraform state file found. Apply may have failed."
+            exit 1
+          fi
+
+          # List all available outputs for debugging
+          echo "📋 Available Terraform outputs:"
+          terraform output || {
+            echo "❌ Failed to get Terraform outputs"
+            exit 1
+          }
+
+          # Get VM IP with error checking
+          VM_IP=$(terraform output -raw public_ip_address 2>/dev/null || echo "")
+          if [ -z "$VM_IP" ]; then
+            echo "❌ Failed to get VM IP from Terraform output 'public_ip_address'"
+            echo "Available outputs:"
+            terraform output
+            exit 1
+          fi
+          echo "✅ VM IP: $VM_IP"
+          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
+
+          # Get SSH private key with error checking
+          SSH_KEY=$(terraform output -raw ssh_private_key 2>/dev/null || echo "")
+          if [ -z "$SSH_KEY" ]; then
+            echo "❌ Failed to get SSH private key from Terraform output 'ssh_private_key'"
+            exit 1
+          fi
+          echo "✅ SSH key retrieved (length: $(echo "$SSH_KEY" | wc -c) characters)"
+          echo "ssh_private_key<<EOF" >> $GITHUB_OUTPUT
+          echo "$SSH_KEY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
