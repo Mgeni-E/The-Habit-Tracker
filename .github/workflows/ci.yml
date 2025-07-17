@@ -117,7 +117,7 @@ jobs:
         working-directory: terraform
         run: terraform init
 
-      - name: Terraform Plan
+      - name: Terraform Plan with Import Handling
         working-directory: terraform
         env:
           TF_VAR_flask_secret_key: ${{ secrets.FLASK_SECRET_KEY }}
@@ -127,7 +127,45 @@ jobs:
           TF_VAR_github_username: ${{ github.actor }}
           TF_VAR_container_image_name: ${{ github.repository }}
         run: |
-          terraform plan -var-file="environments/prod.tfvars" -out=tfplan
+          # Try to plan, and if it fails due to existing resources, attempt to import them
+          if ! terraform plan -var-file="environments/prod.tfvars" -out=tfplan 2>&1 | tee plan_output.log; then
+            echo "Plan failed, checking for existing resources..."
+
+            # Check for resource group import needed
+            if grep -q "habit-tracker-prod-rg.*already exists" plan_output.log; then
+              echo "Importing existing resource group..."
+              terraform import azurerm_resource_group.main /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg || true
+            fi
+
+            # Check for virtual network import needed
+            if grep -q "habit-tracker-prod-vnet.*already exists" plan_output.log; then
+              echo "Importing existing virtual network..."
+              terraform import azurerm_virtual_network.main /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/virtualNetworks/habit-tracker-prod-vnet || true
+            fi
+
+            # Check for public IP import needed
+            if grep -q "habit-tracker-prod-pip.*already exists" plan_output.log; then
+              echo "Importing existing public IP..."
+              terraform import azurerm_public_ip.main /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/publicIPAddresses/habit-tracker-prod-pip || true
+            fi
+
+            # Check for NSG import needed
+            if grep -q "habit-tracker-prod-web-nsg.*already exists" plan_output.log; then
+              echo "Importing existing network security group..."
+              terraform import azurerm_network_security_group.web /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/networkSecurityGroups/habit-tracker-prod-web-nsg || true
+            fi
+
+            # Check for private DNS zone import needed
+            if grep -q "habit-tracker-prod-postgres.private.postgres.database.azure.com.*already exists" plan_output.log; then
+              echo "Importing existing private DNS zone..."
+              terraform import azurerm_private_dns_zone.postgres /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/privateDnsZones/habit-tracker-prod-postgres.private.postgres.database.azure.com || true
+            fi
+
+            # Retry the plan after imports
+            echo "Retrying plan after imports..."
+            terraform plan -var-file="environments/prod.tfvars" -out=tfplan
+          fi
+
           terraform show -no-color tfplan > plan.txt
 
       - name: Comment PR with Terraform Plan
@@ -196,7 +234,7 @@ jobs:
         working-directory: terraform
         run: terraform init
 
-      - name: Terraform Apply
+      - name: Terraform Apply with Import Handling
         working-directory: terraform
         env:
           TF_VAR_flask_secret_key: ${{ secrets.FLASK_SECRET_KEY }}
@@ -205,7 +243,45 @@ jobs:
           TF_VAR_github_token: ${{ secrets.GITHUB_TOKEN }}
           TF_VAR_github_username: ${{ github.actor }}
           TF_VAR_container_image_name: ${{ github.repository }}
-        run: terraform apply -var-file="environments/prod.tfvars" -auto-approve
+        run: |
+          # Try to apply, and if it fails due to existing resources, attempt to import them
+          if ! terraform apply -var-file="environments/prod.tfvars" -auto-approve 2>&1 | tee apply_output.log; then
+            echo "Apply failed, checking for existing resources..."
+
+            # Check for resource group import needed
+            if grep -q "habit-tracker-prod-rg.*already exists" apply_output.log; then
+              echo "Importing existing resource group..."
+              terraform import azurerm_resource_group.main /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg || true
+            fi
+
+            # Check for virtual network import needed
+            if grep -q "habit-tracker-prod-vnet.*already exists" apply_output.log; then
+              echo "Importing existing virtual network..."
+              terraform import azurerm_virtual_network.main /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/virtualNetworks/habit-tracker-prod-vnet || true
+            fi
+
+            # Check for public IP import needed
+            if grep -q "habit-tracker-prod-pip.*already exists" apply_output.log; then
+              echo "Importing existing public IP..."
+              terraform import azurerm_public_ip.main /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/publicIPAddresses/habit-tracker-prod-pip || true
+            fi
+
+            # Check for NSG import needed
+            if grep -q "habit-tracker-prod-web-nsg.*already exists" apply_output.log; then
+              echo "Importing existing network security group..."
+              terraform import azurerm_network_security_group.web /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/networkSecurityGroups/habit-tracker-prod-web-nsg || true
+            fi
+
+            # Check for private DNS zone import needed
+            if grep -q "habit-tracker-prod-postgres.private.postgres.database.azure.com.*already exists" apply_output.log; then
+              echo "Importing existing private DNS zone..."
+              terraform import azurerm_private_dns_zone.postgres /subscriptions/$(az account show --query id -o tsv)/resourceGroups/habit-tracker-prod-rg/providers/Microsoft.Network/privateDnsZones/habit-tracker-prod-postgres.private.postgres.database.azure.com || true
+            fi
+
+            # Retry the apply after imports
+            echo "Retrying apply after imports..."
+            terraform apply -var-file="environments/prod.tfvars" -auto-approve
+          fi
 
       - name: Get Terraform Outputs
         id: terraform-output
