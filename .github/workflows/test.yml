@@ -31,5 +31,5 @@ jobs:
         run: |
           echo "Running pytest with SQLite in-memory..."
           cd habit-tracker
-          pytest tests -v --cov=app --cov-report=xml
+          pytest tests -v
           echo "Unit tests completed."
