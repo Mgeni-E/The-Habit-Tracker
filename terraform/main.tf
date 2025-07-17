@@ -17,9 +17,10 @@ terraform {
 
   backend "azurerm" {
     resource_group_name  = "terraform-state-rg"
-    storage_account_name = "tfstatehabittracker"  # Update this with actual storage account name
+    storage_account_name = "tfstate5190e1d3"
     container_name       = "tfstate"
     key                  = "habit-tracker.terraform.tfstate"
+    use_azuread_auth     = true
   }
 }
 
