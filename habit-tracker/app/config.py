@@ -1,19 +1,20 @@
 import os
-from datetime import timedelta
 
 
 class Config:
     """Base configuration class."""
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+
+    SECRET_KEY = os.environ.get("SECRET_KEY")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
     }
 
 
 class DevelopmentConfig(Config):
     """Development configuration."""
+
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = (
         f"postgresql://{os.environ.get('DB_USER', 'habit_user')}:"
@@ -26,6 +27,7 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     """Production configuration."""
+
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = (
         f"postgresql://{os.environ.get('DB_USER')}:"
@@ -38,6 +40,7 @@ class ProductionConfig(Config):
 
 class TestingConfig(Config):
     """Testing configuration."""
+
     TESTING = True
     SQLALCHEMY_DATABASE_URI = (
         f"postgresql://{os.environ.get('DB_USER', 'test_user')}:"
@@ -50,8 +53,8 @@ class TestingConfig(Config):
 
 # Configuration dictionary
 config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'testing': TestingConfig,
-    'default': DevelopmentConfig
-} 
+    "development": DevelopmentConfig,
+    "production": ProductionConfig,
+    "testing": TestingConfig,
+    "default": DevelopmentConfig,
+}
