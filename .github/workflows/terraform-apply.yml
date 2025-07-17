@@ -102,17 +102,18 @@ jobs:
           fi
 
           echo "🔍 VM IP: $VM_IP"
-          echo "⏳ Waiting for VM to respond to ping..."
+          echo "⏳ Waiting for VM to be ready..."
+          echo "ℹ️  Note: Ping is disabled for security (ICMP blocked by NSG)"
 
-          # Wait for VM to respond to ping (up to 5 minutes)
-          for i in {1..30}; do
-            if ping -c 1 -W 5 "$VM_IP" >/dev/null 2>&1; then
-              echo "✅ VM is responding to ping (attempt $i)"
+          # Wait for SSH port to be open (up to 3 minutes)
+          for i in {1..18}; do
+            if timeout 5 nc -z "$VM_IP" 22 >/dev/null 2>&1; then
+              echo "✅ VM SSH port is open (attempt $i)"
               break
             else
-              echo "⏳ VM not responding to ping yet... (attempt $i/30)"
-              if [ $i -eq 30 ]; then
-                echo "⚠️ VM not responding to ping after 5 minutes, but continuing..."
+              echo "⏳ VM SSH not ready yet... (attempt $i/18)"
+              if [ $i -eq 18 ]; then
+                echo "⚠️ VM SSH not ready after 3 minutes, but continuing..."
               fi
               sleep 10
             fi
