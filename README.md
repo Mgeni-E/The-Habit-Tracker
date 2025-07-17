@@ -160,18 +160,18 @@ python -m pytest
 
 ## Production Deployment
 
-For production deployment, use the production Docker Compose file:
+For production deployment, use the production Docker Compose override:
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
 This configuration:
 
-- Uses the production Docker stage
-- Runs 4 Gunicorn workers
-- Disables debug mode
-- Uses production-optimized settings
+- Uses PostgreSQL with production optimizations
+- Includes resource limits and memory management
+- Optimized database settings for performance
+- Includes backup volume for PostgreSQL
 
 ## Infrastructure as Code
 

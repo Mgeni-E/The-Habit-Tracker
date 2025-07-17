@@ -34,40 +34,9 @@ output "ssh_public_key" {
 }
 
 # =============================================================================
-# Database Outputs
+# Database Outputs - Using Docker PostgreSQL
 # =============================================================================
-
-output "database_server_name" {
-  description = "Name of the PostgreSQL server"
-  value       = azurerm_postgresql_flexible_server.main.name
-}
-
-output "database_server_fqdn" {
-  description = "FQDN of the PostgreSQL server"
-  value       = azurerm_postgresql_flexible_server.main.fqdn
-}
-
-output "database_name" {
-  description = "Name of the PostgreSQL database"
-  value       = azurerm_postgresql_flexible_server_database.habit_tracker.name
-}
-
-output "database_admin_username" {
-  description = "Admin username for the PostgreSQL server"
-  value       = azurerm_postgresql_flexible_server.main.administrator_login
-}
-
-output "database_admin_password" {
-  description = "Admin password for the PostgreSQL server"
-  value       = random_password.db_password.result
-  sensitive   = true
-}
-
-output "database_connection_string" {
-  description = "PostgreSQL connection string for the application"
-  value       = "postgresql://${azurerm_postgresql_flexible_server.main.administrator_login}:${random_password.db_password.result}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${azurerm_postgresql_flexible_server_database.habit_tracker.name}"
-  sensitive   = true
-}
+# Note: Database outputs removed - using Docker PostgreSQL instead
 
 # =============================================================================
 # Network Outputs
@@ -83,10 +52,7 @@ output "web_subnet_id" {
   value       = azurerm_subnet.web.id
 }
 
-output "database_subnet_id" {
-  description = "ID of the database subnet"
-  value       = azurerm_subnet.database.id
-}
+# Note: Database subnet removed - using Docker PostgreSQL instead
 
 # =============================================================================
 # Application URLs

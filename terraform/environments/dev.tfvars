@@ -12,7 +12,4 @@ owner        = "Development Team"
 vm_size        = "Standard_B1s"
 admin_username = "azureuser"
 
-# Database Configuration
-db_admin_username = "habitadmin"
-db_name          = "habit_tracker_dev"
-db_sku_name      = "B_Standard_B1ms"
+# Note: Database configuration moved to Docker Compose

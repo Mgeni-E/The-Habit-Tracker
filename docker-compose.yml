@@ -1,75 +1,105 @@
+# =============================================================================
+# Habit Tracker Application with PostgreSQL Database
+# =============================================================================
+
 services:
-  habit-tracker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: habit-tracker-app
-    ports:
-      - '5000:5000'
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: habit-tracker-postgres
+    restart: unless-stopped
     environment:
-      FLASK_APP: run.py
-      FLASK_ENV: development
-      FLASK_DEBUG: 1
-      SECRET_KEY: dev-secret-key-change-in-production
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: habit_tracker
-      DB_USER: habit_user
-      DB_PASSWORD: habit_password
+      POSTGRES_DB: habit_tracker
+      POSTGRES_USER: ${DB_USER:-habitadmin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-defaultpassword123}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.UTF-8 --lc-ctype=en_US.UTF-8"
     volumes:
-      - ./habit-tracker:/app/habit-tracker:ro
-      - ./habit-tracker/requirements.txt:/app/requirements.txt:ro
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     networks:
-      - habit-network
+      - habit-tracker-network
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${DB_USER:-habitadmin} -d habit_tracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Habit Tracker Application
+  app:
+    image: ${CONTAINER_IMAGE:-ghcr.io/mgeni-e/the-habit-tracker:latest}
+    container_name: habit-tracker-app
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
-    command: >
-      sh -c "cd habit-tracker && python init_db.py && flask run --host=0.0.0.0 --port=5000 --debug"
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: habit_tracker
+      DB_USER: ${DB_USER:-habitadmin}
+      DB_PASSWORD: ${DB_PASSWORD:-defaultpassword123}
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5000:5000"
+    networks:
+      - habit-tracker-network
+    volumes:
+      - app_logs:/app/logs
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5000/']
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  postgres:
-    image: postgres:15-alpine
-    container_name: habit-tracker-db
-    environment:
-      POSTGRES_DB: habit_tracker
-      POSTGRES_USER: habit_user
-      POSTGRES_PASSWORD: habit_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - habit-network
-    restart: unless-stopped
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U habit_user -d habit_tracker']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  pg-admin:
+  pgadmin:
     image: dpage/pgadmin4
-    container_name: pg-admin
+    container_name: habit-tracker-pgadmin
+    restart: unless-stopped
     ports:
-      - '8080:80'
+      - "8080:80"
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - habit-network
+      - habit-tracker-network
+    profiles:
+      - dev
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  habit-tracker-network:
+    driver: bridge
+    name: habit-tracker-network
 
 volumes:
   postgres_data:
+    name: habit-tracker-postgres-data
+    driver: local
 
-networks:
-  habit-network:
-    driver: bridge
+  app_logs:
+    name: habit-tracker-app-logs
+    driver: local

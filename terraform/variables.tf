@@ -48,26 +48,9 @@ variable "admin_username" {
 }
 
 # =============================================================================
-# Database Variables
+# Database Variables - Using Docker PostgreSQL
 # =============================================================================
-
-variable "db_admin_username" {
-  description = "Administrator username for PostgreSQL server"
-  type        = string
-  default     = "habitadmin"
-}
-
-variable "db_name" {
-  description = "Name of the PostgreSQL database"
-  type        = string
-  default     = "habit_tracker"
-}
-
-variable "db_sku_name" {
-  description = "SKU name for PostgreSQL Flexible Server"
-  type        = string
-  default     = "B_Standard_B1ms"
-}
+# Note: Database variables removed - using Docker PostgreSQL instead
 
 # =============================================================================
 # Application Variables

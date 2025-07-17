@@ -46,10 +46,7 @@ locals {
 # Random Password Generation
 # =============================================================================
 
-resource "random_password" "db_password" {
-  length  = 32
-  special = true
-}
+# Note: Database password removed - using Docker PostgreSQL with environment variables
 
 resource "random_password" "admin_password" {
   length  = 16
@@ -101,22 +98,7 @@ resource "azurerm_subnet" "web" {
   address_prefixes     = ["10.0.1.0/24"]
 }
 
-resource "azurerm_subnet" "database" {
-  name                 = "database-subnet"
-  resource_group_name  = azurerm_resource_group.main.name
-  virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = ["10.0.2.0/24"]
-
-  delegation {
-    name = "fs"
-    service_delegation {
-      name = "Microsoft.DBforPostgreSQL/flexibleServers"
-      actions = [
-        "Microsoft.Network/virtualNetworks/subnets/join/action",
-      ]
-    }
-  }
-}
+# Note: Database subnet removed - using Docker PostgreSQL instead
 
 # =============================================================================
 # Network Security Groups
@@ -254,10 +236,5 @@ resource "azurerm_linux_virtual_machine" "main" {
     domain_name     = var.domain_name
     CONTAINER_IMAGE = var.container_image_name
     SECRET_KEY      = var.flask_secret_key
-    DB_HOST         = azurerm_postgresql_flexible_server.main.fqdn
-    DB_PORT         = "5432"
-    DB_NAME         = var.db_name
-    DB_USER         = var.db_admin_username
-    DB_PASSWORD     = random_password.db_password.result
   }))
 }

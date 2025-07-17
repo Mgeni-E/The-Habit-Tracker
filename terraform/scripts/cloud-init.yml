@@ -28,7 +28,7 @@ users:
   - name: appuser
     groups: docker
     shell: /bin/bash
-    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
 
 write_files:
   # Docker daemon configuration
@@ -42,7 +42,7 @@ write_files:
         },
         "storage-driver": "overlay2"
       }
-    permissions: '0644'
+    permissions: "0644"
 
   # Nginx configuration template
   - path: /etc/nginx/sites-available/habit-tracker
@@ -54,7 +54,7 @@ write_files:
           # Redirect HTTP to HTTPS
           return 301 https://$server_name$request_uri;
       }
-      
+
       server {
           listen 443 ssl http2;
           server_name _;
@@ -86,7 +86,7 @@ write_files:
               add_header Content-Type text/plain;
           }
       }
-    permissions: '0644'
+    permissions: "0644"
 
   # UFW configuration
   - path: /etc/ufw/applications.d/habit-tracker
@@ -95,7 +95,7 @@ write_files:
       title=Habit Tracker Application
       description=Flask application with Nginx reverse proxy
       ports=80,443/tcp
-    permissions: '0644'
+    permissions: "0644"
 
   # Fail2ban jail configuration
   - path: /etc/fail2ban/jail.d/habit-tracker.conf
@@ -107,31 +107,31 @@ write_files:
       logpath = /var/log/auth.log
       maxretry = 3
       bantime = 3600
-      
+
       [nginx-http-auth]
       enabled = true
       filter = nginx-http-auth
       logpath = /var/log/nginx/error.log
       maxretry = 5
       bantime = 3600
-    permissions: '0644'
+    permissions: "0644"
 
   # Application deployment script
   - path: /home/${admin_username}/deploy-app.sh
     content: |
       #!/bin/bash
       set -e
-      
+
       echo "Starting application deployment..."
-      
+
       # Create application directory
       sudo mkdir -p /opt/habit-tracker
       sudo chown appuser:appuser /opt/habit-tracker
-      
+
       # Create docker-compose.yml for production
       cat > /opt/habit-tracker/docker-compose.yml << 'EOF'
       version: '3.8'
-      
+
       services:
         habit-tracker:
           image: ${CONTAINER_IMAGE}
@@ -142,11 +142,7 @@ write_files:
           environment:
             FLASK_ENV: production
             SECRET_KEY: ${SECRET_KEY}
-            DB_HOST: ${DB_HOST}
-            DB_PORT: ${DB_PORT}
-            DB_NAME: ${DB_NAME}
-            DB_USER: ${DB_USER}
-            DB_PASSWORD: ${DB_PASSWORD}
+            # Note: Database configuration handled by Docker Compose
           healthcheck:
             test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
             interval: 30s
@@ -159,9 +155,9 @@ write_files:
               max-size: "10m"
               max-file: "3"
       EOF
-      
+
       echo "Application deployment script created successfully"
-    permissions: '0755'
+    permissions: "0755"
     owner: ${admin_username}:${admin_username}
 
 runcmd:
@@ -170,22 +166,22 @@ runcmd:
   - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-  
+
   # Start and enable Docker
   - systemctl start docker
   - systemctl enable docker
-  
+
   # Add users to docker group
   - usermod -aG docker ${admin_username}
   - usermod -aG docker appuser
-  
+
   # Configure Nginx
   - rm -f /etc/nginx/sites-enabled/default
   - ln -sf /etc/nginx/sites-available/habit-tracker /etc/nginx/sites-enabled/
   - nginx -t
   - systemctl restart nginx
   - systemctl enable nginx
-  
+
   # Configure UFW firewall
   - ufw --force enable
   - ufw default deny incoming
@@ -193,19 +189,19 @@ runcmd:
   - ufw allow ssh
   - ufw allow 'Nginx Full'
   - ufw allow 'Habit Tracker'
-  
+
   # Start fail2ban
   - systemctl start fail2ban
   - systemctl enable fail2ban
-  
+
   # Configure automatic security updates
   - echo 'Unattended-Upgrade::Automatic-Reboot "false";' >> /etc/apt/apt.conf.d/50unattended-upgrades
   - systemctl enable unattended-upgrades
-  
+
   # Create log directories
   - mkdir -p /var/log/habit-tracker
   - chown appuser:appuser /var/log/habit-tracker
-  
+
   # Set up log rotation
   - |
     cat > /etc/logrotate.d/habit-tracker << 'EOF'

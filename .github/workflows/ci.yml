@@ -464,83 +464,77 @@ jobs:
 
       - name: Create deployment environment file
         run: |
-          # Initialize Terraform in case state needs to be refreshed
-          cd terraform
-          terraform init
+          echo "🔍 Creating deployment environment file..."
 
-          # Get database connection details from Terraform outputs
-          echo "🔍 Getting database connection details from Terraform..."
-
-          DB_HOST=$(terraform output -raw database_server_fqdn 2>/dev/null || echo "")
-          if [ -z "$DB_HOST" ]; then
-            echo "❌ Failed to get database host"
-            terraform output
-            exit 1
-          fi
-
-          DB_PASSWORD=$(terraform output -raw database_admin_password 2>/dev/null || echo "")
-          if [ -z "$DB_PASSWORD" ]; then
-            echo "❌ Failed to get database password"
-            exit 1
-          fi
-
-          DB_USER=$(terraform output -raw database_admin_username 2>/dev/null || echo "")
-          if [ -z "$DB_USER" ]; then
-            echo "❌ Failed to get database user"
-            exit 1
-          fi
-
-          DB_NAME=$(terraform output -raw database_name 2>/dev/null || echo "")
-          if [ -z "$DB_NAME" ]; then
-            echo "❌ Failed to get database name"
-            exit 1
-          fi
-
-          echo "✅ Database connection details retrieved"
-          echo "✅ DB_HOST: $DB_HOST"
-          echo "✅ DB_USER: $DB_USER"
-          echo "✅ DB_NAME: $DB_NAME"
-
-          cd ..
+          # Generate a secure database password
+          DB_PASSWORD=$(openssl rand -base64 32)
 
           cat > .env.prod << EOF
+          # Container Configuration
           CONTAINER_IMAGE=ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+          # Flask Configuration
+          FLASK_ENV=production
           SECRET_KEY=${{ secrets.TF_VAR_FLASK_SECRET_KEY }}
-          DB_HOST=$DB_HOST
-          DB_PORT=5432
-          DB_NAME=$DB_NAME
-          DB_USER=$DB_USER
+
+          # Database Configuration (Docker PostgreSQL)
+          DB_USER=habitadmin
           DB_PASSWORD=$DB_PASSWORD
+
+          # Optional: PgAdmin Configuration
+          PGADMIN_EMAIL=admin@${{ github.repository_owner }}.com
+          PGADMIN_PASSWORD=$(openssl rand -base64 16)
           EOF
+
+          echo "✅ Environment file created with secure passwords"
 
       - name: Copy deployment files to VM
         run: |
           scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no .env.prod azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no scripts/deploy.sh azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no docker-compose.yml azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no docker-compose.prod.yml azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no scripts/init-db.sql azureuser@${{ needs.terraform-apply.outputs.vm_ip }}:/tmp/
 
-      - name: Deploy application
+      - name: Deploy application with Docker Compose
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no azureuser@${{ needs.terraform-apply.outputs.vm_ip }} << 'EOF'
-            source /tmp/.env.prod
+            # Setup deployment directory
+            sudo mkdir -p /opt/habit-tracker
+            sudo cp /tmp/.env.prod /opt/habit-tracker/
+            sudo cp /tmp/docker-compose.yml /opt/habit-tracker/
+            sudo cp /tmp/docker-compose.prod.yml /opt/habit-tracker/
+            sudo mkdir -p /opt/habit-tracker/scripts
+            sudo cp /tmp/init-db.sql /opt/habit-tracker/scripts/
+            cd /opt/habit-tracker
+
+            # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            sudo docker pull $CONTAINER_IMAGE
-            sudo docker stop habit-tracker-app || true
-            sudo docker rm habit-tracker-app || true
-            sudo docker run -d \
-              --name habit-tracker-app \
-              --restart unless-stopped \
-              -p 5000:5000 \
-              -e FLASK_ENV=production \
-              -e SECRET_KEY="$SECRET_KEY" \
-              -e DB_HOST="$DB_HOST" \
-              -e DB_PORT="$DB_PORT" \
-              -e DB_NAME="$DB_NAME" \
-              -e DB_USER="$DB_USER" \
-              -e DB_PASSWORD="$DB_PASSWORD" \
-              $CONTAINER_IMAGE
-            sleep 30
+
+            # Stop existing services
+            sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml down || true
+
+            # Pull latest images
+            sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+
+            # Start services with production overrides
+            sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+            # Wait for services to be healthy
+            echo "⏳ Waiting for services to be healthy..."
+            for i in {1..30}; do
+              if sudo docker compose -f docker-compose.yml -f docker-compose.prod.yml ps | grep -q "healthy"; then
+                echo "✅ Services are healthy"
+                break
+              else
+                echo "⏳ Waiting for services... (attempt $i/30)"
+                sleep 10
+              fi
+            done
+
+            # Test application
+            sleep 10
             curl -f http://localhost:5000/ || exit 1
-            echo "Application deployed successfully!"
+            echo "✅ Application deployed successfully with Docker Compose!"
           EOF
 
       - name: Setup SSL Certificate (if domain configured)

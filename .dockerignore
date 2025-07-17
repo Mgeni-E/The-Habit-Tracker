@@ -102,10 +102,8 @@ terraform/
 .terraform/
 
 # =============================================================================
-# Docker Files (except the one we're using)
+# Docker Files (keep only necessary ones)
 # =============================================================================
-docker-compose*.yml
-Dockerfile*
 .dockerignore
 
 # =============================================================================

@@ -135,10 +135,7 @@ if resource_exists "rg" "$RG_NAME"; then
         "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/networkSecurityGroups/$NSG_NAME" \
         "$RG_NAME"
     
-    # 5. Private DNS Zone
-    import_if_needed "dns" "$DNS_ZONE_NAME" "azurerm_private_dns_zone.postgres" \
-        "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/privateDnsZones/$DNS_ZONE_NAME" \
-        "$RG_NAME"
+    # Note: Private DNS Zone import removed - using Docker PostgreSQL instead
 fi
 
 log_success "🎉 Import process completed!"

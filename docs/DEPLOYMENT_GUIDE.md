@@ -37,18 +37,19 @@ Go to your GitHub repository → Settings → Secrets and variables → Actions
 
 Add these secrets:
 
-| Secret Name | Value | Required |
-|-------------|-------|----------|
-| `AZURE_CREDENTIALS` | JSON from service principal creation | ✅ |
-| `FLASK_SECRET_KEY` | Generate with: `python -c "import secrets; print(secrets.token_hex(32))"` | ✅ |
-| `DB_NAME` | `habit_tracker` | ✅ |
-| `DB_USER` | `habitadmin` | ✅ |
-| `DOMAIN_NAME` | Your domain (e.g., `app.yourdomain.com`) | ❌ |
-| `SSL_EMAIL` | Your email for SSL certificates | ❌ |
+| Secret Name         | Value                                                                     | Required |
+| ------------------- | ------------------------------------------------------------------------- | -------- |
+| `AZURE_CREDENTIALS` | JSON from service principal creation                                      | ✅       |
+| `FLASK_SECRET_KEY`  | Generate with: `python -c "import secrets; print(secrets.token_hex(32))"` | ✅       |
+| `DB_NAME`           | `habit_tracker`                                                           | ✅       |
+| `DB_USER`           | `habitadmin`                                                              | ✅       |
+| `DOMAIN_NAME`       | Your domain (e.g., `app.yourdomain.com`)                                  | ❌       |
+| `SSL_EMAIL`         | Your email for SSL certificates                                           | ❌       |
 
 ### 3. Deploy the Application
 
 1. **Push to main branch** or **create a pull request**:
+
    ```bash
    git add .
    git commit -m "Deploy to Azure"
@@ -56,6 +57,7 @@ Add these secrets:
    ```
 
 2. **Monitor the deployment**:
+
    - Go to GitHub → Actions tab
    - Watch the workflow progress
    - Check for any errors in the logs
@@ -86,6 +88,7 @@ The GitHub Actions workflow will:
 After infrastructure is ready:
 
 1. **Configure VM** with cloud-init script:
+
    - Install Docker, Nginx, SSL tools
    - Configure firewall and security
    - Set up log rotation and monitoring
@@ -145,10 +148,12 @@ location = "East US"
 If you have a custom domain:
 
 1. **Set GitHub secrets**:
+
    - `DOMAIN_NAME`: Your domain name
    - `SSL_EMAIL`: Email for Let's Encrypt
 
 2. **Configure DNS**:
+
    - Point your domain's A record to the VM's public IP
    - Wait for DNS propagation (can take up to 24 hours)
 
@@ -183,11 +188,14 @@ sudo /opt/habit-tracker/scripts/health-check.sh
 
 ### Database Management
 
-Access the PostgreSQL database:
+Access the Docker PostgreSQL database:
 
 ```bash
-# From the VM
-psql "postgresql://habitadmin:PASSWORD@DB_HOST:5432/habit_tracker"
+# From the VM - connect to PostgreSQL container
+sudo docker exec -it habit-tracker-postgres psql -U habitadmin -d habit_tracker
+
+# Or run backup script
+sudo /opt/habit-tracker/scripts/backup-db.sh
 ```
 
 ### SSL Certificate Renewal
@@ -233,17 +241,18 @@ deploy:
   resources:
     limits:
       memory: 1G
-      cpus: '1.0'
+      cpus: "1.0"
 ```
 
 ## Backup and Recovery
 
 ### Database Backups
 
-Azure PostgreSQL provides automatic backups:
-- 7-day retention period
-- Point-in-time recovery
-- Geo-redundant backups (if enabled)
+Docker PostgreSQL backups:
+
+- Manual backup using Docker volumes
+- Automated backup scripts (see scripts/backup-db.sh)
+- Regular volume snapshots recommended
 
 ### Application Data Backup
 
@@ -258,7 +267,7 @@ sudo docker exec habit-tracker-app tar czf /tmp/app-backup-$(date +%Y%m%d).tar.g
 ### Disaster Recovery
 
 1. **Infrastructure**: Terraform state allows recreation
-2. **Database**: Use Azure backup/restore features
+2. **Database**: Restore from Docker volume backups
 3. **Application**: Docker images stored in GitHub Container Registry
 
 ## Troubleshooting
@@ -268,11 +277,13 @@ sudo docker exec habit-tracker-app tar czf /tmp/app-backup-$(date +%Y%m%d).tar.g
 #### Deployment Fails
 
 1. **Check GitHub Actions logs**:
+
    - Go to Actions tab in GitHub
    - Click on the failed workflow
    - Review error messages
 
 2. **Terraform errors**:
+
    - Usually related to Azure permissions
    - Check service principal permissions
    - Verify subscription quotas
@@ -285,6 +296,7 @@ sudo docker exec habit-tracker-app tar czf /tmp/app-backup-$(date +%Y%m%d).tar.g
 #### SSL Certificate Issues
 
 1. **Domain not resolving**:
+
    ```bash
    nslookup YOUR_DOMAIN
    ```
@@ -297,6 +309,7 @@ sudo docker exec habit-tracker-app tar czf /tmp/app-backup-$(date +%Y%m%d).tar.g
 #### Database Connection Issues
 
 1. **Check database status**:
+
    ```bash
    az postgres flexible-server show --name YOUR_DB_NAME --resource-group YOUR_RG
    ```
@@ -360,6 +373,7 @@ db_sku_name = "B_Standard_B1ms"  # Burstable
 5. **Security hardening**: Additional security measures
 
 For detailed configuration options, see:
+
 - [GitHub Secrets Guide](GITHUB_SECRETS.md)
 - [Terraform Documentation](../terraform/README.md)
 - [Main README](../README.md)
