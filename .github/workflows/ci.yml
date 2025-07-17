@@ -32,5 +32,7 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       image: ${{ needs.build.outputs.image }}
+      vm_ip: ${{ needs.terraform-apply.outputs.vm_ip }}
+      ssh_private_key: ${{ needs.terraform-apply.outputs.ssh_private_key }}
     secrets: inherit
   

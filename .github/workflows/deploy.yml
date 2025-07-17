@@ -6,13 +6,13 @@ on:
       image:
         required: true
         type: string
+      vm_ip:
+        required: true
+        type: string
+      ssh_private_key:
+        required: true
+        type: string
     secrets:
-      AZURE_VM_HOST:
-        required: true
-      AZURE_VM_USER:
-        required: true
-      AZURE_VM_SSH_KEY:
-        required: true
       DB_USER:
         required: true
       DB_PASSWORD:
@@ -55,8 +55,8 @@ jobs:
 
       - name: Setup SSH key
         run: |
-          VM_IP="${{ needs.terraform-apply.outputs.vm_ip }}"
-          SSH_KEY="${{ needs.terraform-apply.outputs.ssh_private_key }}"
+          VM_IP="${{ inputs.vm_ip }}"
+          SSH_KEY="${{ inputs.ssh_private_key }}"
 
           if [ -z "$VM_IP" ]; then
             echo "❌ VM IP is empty. Terraform apply may have failed."
@@ -215,7 +215,7 @@ jobs:
 
       - name: Verify deployment
         run: |
-          VM_IP=${{ needs.terraform-apply.outputs.vm_ip }}
+          VM_IP=${{ inputs.vm_ip }}
           echo "Testing HTTP redirect..."
           curl -I http://$VM_IP | grep -q "301\|302" || echo "Warning: HTTP redirect not working"
           echo "Testing application health..."
