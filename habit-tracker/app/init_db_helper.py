@@ -22,9 +22,7 @@ def init_database_tables():
     habits_final = inspector.has_table('habits')
     completions_final = inspector.has_table('completions')
 
-    print(f"📋 Final state:")
-    print(f"   - Habits table: {'✅ EXISTS' if habits_final else '❌ MISSING'}")
-    print(f"   - Completions table: {'✅ EXISTS' if completions_final else '❌ MISSING'}")
+    print("📋 Final state:")
 
     if not (habits_final and completions_final):
         raise Exception("Database initialization failed - missing tables")
