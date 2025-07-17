@@ -20,7 +20,6 @@ terraform {
     storage_account_name = "tfstate5190e1d3"
     container_name       = "tfstate"
     key                  = "habit-tracker.terraform.tfstate"
-    use_azuread_auth     = true
   }
 }
 
