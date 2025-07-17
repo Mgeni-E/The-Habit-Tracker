@@ -320,16 +320,115 @@ jobs:
 
             # Retry the apply after imports
             echo "Retrying apply after imports..."
-            terraform apply -var-file="environments/prod.tfvars" -auto-approve
+            if ! terraform apply -var-file="environments/prod.tfvars" -auto-approve; then
+              echo "❌ Terraform apply failed even after importing existing resources"
+              echo "Apply output:"
+              cat apply_output.log
+              exit 1
+            fi
           fi
+
+          # Verify apply was successful
+          echo "✅ Terraform apply completed successfully"
+          echo "📋 Verifying infrastructure state..."
+
+          # Check if key resources exist in state
+          if ! terraform state show azurerm_public_ip.main >/dev/null 2>&1; then
+            echo "❌ Public IP resource not found in state"
+            exit 1
+          fi
+
+          if ! terraform state show azurerm_linux_virtual_machine.main >/dev/null 2>&1; then
+            echo "❌ Virtual machine resource not found in state"
+            exit 1
+          fi
+
+          echo "✅ Key infrastructure resources verified in state"
+
+          # Debug: Show current state
+          echo "🔍 Current Terraform state:"
+          terraform state list || echo "No resources in state"
+
+          # Debug: Show workspace
+          echo "🔍 Current workspace: $(terraform workspace show)"
+
+      - name: Upload Terraform State
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state
+          path: |
+            terraform/terraform.tfstate
+            terraform/.terraform/
+          retention-days: 1
+
+      - name: Wait for VM to be Ready
+        working-directory: terraform
+        run: |
+          echo "⏳ Waiting for VM to be fully provisioned..."
+          VM_IP=$(terraform output -raw public_ip_address 2>/dev/null || echo "")
+
+          if [ -z "$VM_IP" ]; then
+            echo "❌ Could not get VM IP from Terraform output"
+            terraform output
+            exit 1
+          fi
+
+          echo "🔍 VM IP: $VM_IP"
+          echo "⏳ Waiting for VM to respond to ping..."
+
+          # Wait for VM to respond to ping (up to 5 minutes)
+          for i in {1..30}; do
+            if ping -c 1 -W 5 "$VM_IP" >/dev/null 2>&1; then
+              echo "✅ VM is responding to ping (attempt $i)"
+              break
+            else
+              echo "⏳ VM not responding to ping yet... (attempt $i/30)"
+              if [ $i -eq 30 ]; then
+                echo "⚠️ VM not responding to ping after 5 minutes, but continuing..."
+              fi
+              sleep 10
+            fi
+          done
 
       - name: Get Terraform Outputs
         id: terraform-output
         working-directory: terraform
         run: |
-          echo "vm_ip=$(terraform output -raw public_ip_address)" >> $GITHUB_OUTPUT
+          echo "🔍 Getting Terraform outputs..."
+
+          # Check if Terraform state exists
+          if [ ! -f "terraform.tfstate" ] && [ ! -f ".terraform/terraform.tfstate" ]; then
+            echo "❌ No Terraform state file found. Apply may have failed."
+            exit 1
+          fi
+
+          # List all available outputs for debugging
+          echo "📋 Available Terraform outputs:"
+          terraform output || {
+            echo "❌ Failed to get Terraform outputs"
+            exit 1
+          }
+
+          # Get VM IP with error checking
+          VM_IP=$(terraform output -raw public_ip_address 2>/dev/null || echo "")
+          if [ -z "$VM_IP" ]; then
+            echo "❌ Failed to get VM IP from Terraform output 'public_ip_address'"
+            echo "Available outputs:"
+            terraform output
+            exit 1
+          fi
+          echo "✅ VM IP: $VM_IP"
+          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
+
+          # Get SSH private key with error checking
+          SSH_KEY=$(terraform output -raw ssh_private_key 2>/dev/null || echo "")
+          if [ -z "$SSH_KEY" ]; then
+            echo "❌ Failed to get SSH private key from Terraform output 'ssh_private_key'"
+            exit 1
+          fi
+          echo "✅ SSH key retrieved (length: $(echo "$SSH_KEY" | wc -c) characters)"
           echo "ssh_private_key<<EOF" >> $GITHUB_OUTPUT
-          terraform output -raw ssh_private_key >> $GITHUB_OUTPUT
+          echo "$SSH_KEY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
   deploy:
@@ -341,6 +440,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.0"
+          terraform_wrapper: false
+
+      - name: Download Terraform State
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-state
+          path: terraform/
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Setup SSH key
         run: |
@@ -382,11 +498,44 @@ jobs:
 
       - name: Create deployment environment file
         run: |
+          # Initialize Terraform in case state needs to be refreshed
+          cd terraform
+          terraform init
+
           # Get database connection details from Terraform outputs
-          DB_HOST=$(cd terraform && terraform output -raw database_server_fqdn)
-          DB_PASSWORD=$(cd terraform && terraform output -raw database_admin_password)
-          DB_USER=$(cd terraform && terraform output -raw database_admin_username)
-          DB_NAME=$(cd terraform && terraform output -raw database_name)
+          echo "🔍 Getting database connection details from Terraform..."
+
+          DB_HOST=$(terraform output -raw database_server_fqdn 2>/dev/null || echo "")
+          if [ -z "$DB_HOST" ]; then
+            echo "❌ Failed to get database host"
+            terraform output
+            exit 1
+          fi
+
+          DB_PASSWORD=$(terraform output -raw database_admin_password 2>/dev/null || echo "")
+          if [ -z "$DB_PASSWORD" ]; then
+            echo "❌ Failed to get database password"
+            exit 1
+          fi
+
+          DB_USER=$(terraform output -raw database_admin_username 2>/dev/null || echo "")
+          if [ -z "$DB_USER" ]; then
+            echo "❌ Failed to get database user"
+            exit 1
+          fi
+
+          DB_NAME=$(terraform output -raw database_name 2>/dev/null || echo "")
+          if [ -z "$DB_NAME" ]; then
+            echo "❌ Failed to get database name"
+            exit 1
+          fi
+
+          echo "✅ Database connection details retrieved"
+          echo "✅ DB_HOST: $DB_HOST"
+          echo "✅ DB_USER: $DB_USER"
+          echo "✅ DB_NAME: $DB_NAME"
+
+          cd ..
 
           cat > .env.prod << EOF
           CONTAINER_IMAGE=ghcr.io/${{ github.repository }}:${{ github.sha }}
