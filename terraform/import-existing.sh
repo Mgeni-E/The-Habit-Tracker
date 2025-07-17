@@ -81,6 +81,12 @@ resource_exists() {
         "vm")
             az vm show --name "$resource_name" --resource-group "$resource_group" >/dev/null 2>&1
             ;;
+        "subnet-nsg-association")
+            # For subnet-NSG association, we check if the NSG is associated with the subnet
+            local vnet_name=$4
+            local nsg_id=$5
+            az network vnet subnet show --name "$resource_name" --vnet-name "$vnet_name" --resource-group "$resource_group" --query "networkSecurityGroup.id" -o tsv 2>/dev/null | grep -q "$nsg_id"
+            ;;
         *)
             return 1
             ;;
@@ -161,6 +167,12 @@ if resource_exists "rg" "$RG_NAME"; then
     import_if_needed "vm" "$VM_NAME" "azurerm_linux_virtual_machine.main" \
         "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Compute/virtualMachines/$VM_NAME" \
         "$RG_NAME"
+
+    # 8. Subnet-NSG Association
+    NSG_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/networkSecurityGroups/$NSG_NAME"
+    import_if_needed "subnet-nsg-association" "$WEB_SUBNET_NAME" "azurerm_subnet_network_security_group_association.web" \
+        "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG_NAME/providers/Microsoft.Network/virtualNetworks/$VNET_NAME/subnets/$WEB_SUBNET_NAME" \
+        "$RG_NAME" "$VNET_NAME" "$NSG_ID"
 fi
 
 log_success "🎉 Import process completed!"
