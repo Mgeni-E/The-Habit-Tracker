@@ -21,11 +21,11 @@ class DevelopmentConfig(Config):
 
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = (
-        f"postgresql://{os.environ.get('DB_USER')}:"
-        f"{os.environ.get('DB_PASSWORD')}@"
-        f"{os.environ.get('DB_HOST')}:"
-        f"{os.environ.get('DB_PORT')}/"
-        f"{os.environ.get('DB_NAME')}"
+        f"postgresql://{os.environ.get('DB_USER', 'admin')}:"
+        f"{os.environ.get('DB_PASSWORD', 'password')}@"
+        f"{os.environ.get('DB_HOST', 'localhost')}:"
+        f"{os.environ.get('DB_PORT', '5432')}/"
+        f"{os.environ.get('DB_NAME', 'habit_tracker')}"
     )
 
 
@@ -34,17 +34,27 @@ class ProductionConfig(Config):
 
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = (
-        f"postgresql://{os.environ.get('DB_USER')}:"
-        f"{os.environ.get('DB_PASSWORD')}@"
-        f"{os.environ.get('DB_HOST')}:"
+        f"postgresql://{os.environ.get('DB_USER', 'admin')}:"
+        f"{os.environ.get('DB_PASSWORD', 'password')}@"
+        f"{os.environ.get('DB_HOST', 'localhost')}:"
         f"{os.environ.get('DB_PORT', '5432')}/"
-        f"{os.environ.get('DB_NAME')}"
+        f"{os.environ.get('DB_NAME', 'habit_tracker')}"
     )
+
+
+class TestConfig(Config):
+    """Testing configuration."""
+
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    WTF_CSRF_ENABLED = False
+    SECRET_KEY = "test-secret-key"
 
 
 # Configuration dictionary
 config = {
     "development": DevelopmentConfig,
     "production": ProductionConfig,
+    "testing": TestConfig,
     "default": DevelopmentConfig,
 }

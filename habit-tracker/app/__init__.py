@@ -22,10 +22,11 @@ def create_app(config_name=None, test_config=None):
     db.init_app(app)
     csrf.init_app(app)
 
-    # Initialize database tables
-    with app.app_context():
-        from .init_db_helper import init_database_tables
-        init_database_tables()
+    # Initialize database tables (skip in testing mode)
+    if not app.config.get('TESTING', False):
+        with app.app_context():
+            from .init_db_helper import init_database_tables
+            init_database_tables()
 
     # Register blueprints
     from .routes.habit_routes import main_bp
