@@ -7,7 +7,7 @@ import os
 csrf = CSRFProtect()
 
 
-def create_app(config_name=None):
+def create_app(config_name=None, test_config=None):
     app = Flask(__name__)
 
     # Load configuration
@@ -15,6 +15,8 @@ def create_app(config_name=None):
         config_name = os.environ.get("FLASK_ENV", "development")
 
     app.config.from_object(config[config_name])
+    if test_config:
+        app.config.update(test_config)
 
     # Initialize extensions
     db.init_app(app)
@@ -24,9 +26,5 @@ def create_app(config_name=None):
     from .routes.habit_routes import main_bp
 
     app.register_blueprint(main_bp)
-
-    # Create database tables
-    with app.app_context():
-        db.create_all()
 
     return app

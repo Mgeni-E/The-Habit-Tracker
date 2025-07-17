@@ -60,7 +60,7 @@ class Habit(db.Model):
 
         completion_dates = sorted(
             [comp.date_completed for comp in self.completions]
-            )
+        )
         if not completion_dates:
             return 0
 
@@ -98,9 +98,7 @@ class Completion(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     habit_id = db.Column(
-        db.Integer,
-        db.ForeignKey("habits.id"),
-        nullable=False
+        db.Integer, db.ForeignKey("habits.id"), nullable=False
     )
     date_completed = db.Column(db.Date, nullable=False, default=date.today)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

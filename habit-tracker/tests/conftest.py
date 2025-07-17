@@ -1,5 +1,4 @@
 import pytest
-import os
 from datetime import date, timedelta
 from app import create_app, db
 from app.models import Habit, Completion
@@ -8,18 +7,13 @@ from app.models import Habit, Completion
 @pytest.fixture
 def app():
     """Create and configure a new app instance for each test."""
-    app = create_app()
-    app.config['TESTING'] = True
-    
-    # Use PostgreSQL for testing if DB_TEST_URI is set, otherwise use SQLite
-    test_db_uri = os.environ.get('DB_TEST_URI')
-    if test_db_uri:
-        app.config['SQLALCHEMY_DATABASE_URI'] = test_db_uri
-    else:
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    
-    app.config['WTF_CSRF_ENABLED'] = False
-    
+    test_config = {
+        "TESTING": True,
+        "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+        "WTF_CSRF_ENABLED": False,
+        "SECRET_KEY": "test-secret-key",
+    }
+    app = create_app(test_config=test_config)
     with app.app_context():
         db.create_all()
         yield app
@@ -40,7 +34,7 @@ def sample_habit(app):
         habit = Habit(
             name="Test Habit",
             frequency="daily",
-            start_date=date.today() - timedelta(days=7)
+            start_date=date.today() - timedelta(days=7),
         )
         db.session.add(habit)
         db.session.commit()
@@ -55,18 +49,18 @@ def sample_habits(app):
         habit_data = [
             ("Exercise", "daily"),
             ("Read", "daily"),
-            ("Meditate", "weekly")
+            ("Meditate", "weekly"),
         ]
-        
+
         for name, frequency in habit_data:
             habit = Habit(
                 name=name,
                 frequency=frequency,
-                start_date=date.today() - timedelta(days=5)
+                start_date=date.today() - timedelta(days=5),
             )
             db.session.add(habit)
             habits.append(habit)
-        
+
         db.session.commit()
         return habits
 
@@ -76,15 +70,16 @@ def sample_completions(app, sample_habit):
     """Create sample completions for testing."""
     with app.app_context():
         completions = []
-        dates = [date.today(), date.today() - timedelta(days=1), date.today() - timedelta(days=2)]
-        
+        dates = [
+            date.today(),
+            date.today() - timedelta(days=1),
+            date.today() - timedelta(days=2),
+        ]
+
         for d in dates:
-            completion = Completion(
-                habit_id=sample_habit.id,
-                date_completed=d
-            )
+            completion = Completion(habit_id=sample_habit.id, date_completed=d)
             db.session.add(completion)
             completions.append(completion)
-        
+
         db.session.commit()
-        return completions 
+        return completions
