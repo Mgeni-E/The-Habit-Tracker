@@ -1,0 +1,6 @@
+project_name = "habit-tracker"
+environment  = "prod"
+location     = "South Africa North"
+owner        = "DevOps Team"
+vm_size        = "Standard_B2s"
+admin_username = "azureuser"
