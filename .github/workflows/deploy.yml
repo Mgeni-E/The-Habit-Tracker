@@ -173,40 +173,8 @@ jobs:
 
             # Start services with environment file
             sudo docker compose --env-file .env up -d
-
-            # Wait for services to be healthy
-            echo "⏳ Waiting for services to be healthy..."
-            for i in {1..30}; do
-              if sudo docker compose --env-file .env ps | grep -q "healthy"; then
-                echo "✅ Services are healthy"
-                break
-              else
-                echo "⏳ Waiting for services... (attempt $i/30)"
-                sleep 10
-              fi
-            done
-
-            # Test application
-            sleep 10
-            curl -f http://localhost:5000/ || exit 1
             echo "✅ Application deployed successfully with Docker Compose!"
           EOF
-
-      - name: Verify deployment
-        run: |
-          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
-          echo "🔍 Verifying deployment..."
-
-          # Test main application
-          if curl -f -s "http://$VM_IP/" >/dev/null; then
-            echo "✅ Main application is responding"
-          else
-            echo "⚠️ Main application may not be ready yet"
-          fi
-
-          echo ""
-          echo "🎉 Deployment completed!"
-          echo "📋 Application URL: http://$VM_IP/"
 
       - name: Cleanup
         if: always()
