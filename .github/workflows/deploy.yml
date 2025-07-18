@@ -164,9 +164,65 @@ jobs:
             # Ensure Docker is running
             sudo systemctl start docker
 
+            # Check if Nginx is installed, install if missing
+            if ! command -v nginx >/dev/null 2>&1; then
+              echo "🌐 Nginx not found, installing..."
+              sudo apt update
+              sudo apt install -y nginx
+              sudo systemctl start nginx
+              sudo systemctl enable nginx
+              echo "✅ Nginx installed"
+            else
+              echo "✅ Nginx is already installed"
+            fi
+
+            # Configure Nginx reverse proxy
+            echo "🔧 Configuring Nginx reverse proxy..."
+            sudo tee /etc/nginx/sites-available/habit-tracker > /dev/null << 'NGINX_EOF'
+            server {
+                listen 80;
+                server_name _;
+
+                # Main application
+                location / {
+                    proxy_pass http://localhost:5000;
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
+                }
+
+                # PgAdmin
+                location /db {
+                    proxy_pass http://localhost:8080;
+                    proxy_set_header Host \$host;
+                    proxy_set_header X-Real-IP \$remote_addr;
+                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto \$scheme;
+                    proxy_set_header X-Script-Name /db;
+                }
+            }
+            NGINX_EOF
+
+            # Enable the site and restart nginx
+            sudo ln -sf /etc/nginx/sites-available/habit-tracker /etc/nginx/sites-enabled/
+            sudo rm -f /etc/nginx/sites-enabled/default
+            sudo nginx -t && sudo systemctl reload nginx
+            echo "✅ Nginx configured and reloaded"
+
+            # Configure UFW firewall if needed
+            if command -v ufw >/dev/null 2>&1; then
+              echo "🔥 Configuring UFW firewall..."
+              sudo ufw --force enable
+              sudo ufw allow ssh
+              sudo ufw allow http
+              sudo ufw allow https
+              echo "✅ UFW firewall configured"
+            fi
+
             # Setup deployment directory
             sudo mkdir -p /opt/habit-tracker
-            sudo cp /tmp/.env.prod /opt/habit-tracker/
+            sudo cp /tmp/.env.prod /opt/habit-tracker/.env
             sudo cp /tmp/docker-compose.yml /opt/habit-tracker/
             cd /opt/habit-tracker
 
@@ -179,13 +235,13 @@ jobs:
             # Pull latest images
             sudo docker compose pull
 
-            # Start services
-            sudo docker compose up -d
+            # Start services with environment file
+            sudo docker compose --env-file .env up -d
 
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be healthy..."
             for i in {1..30}; do
-              if sudo docker compose ps | grep -q "healthy"; then
+              if sudo docker compose --env-file .env ps | grep -q "healthy"; then
                 echo "✅ Services are healthy"
                 break
               else
