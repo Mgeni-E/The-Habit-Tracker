@@ -1,10 +1,8 @@
 name: Docker CI/CD Pipeline
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 permissions:
   contents: read
@@ -23,8 +21,8 @@ jobs:
     uses: ./.github/workflows/build.yml
 
   deploy:
-    needs: [build]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    needs: build
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     uses: ./.github/workflows/deploy.yml
     with:
       image: ${{ needs.build.outputs.image }}
