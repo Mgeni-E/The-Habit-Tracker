@@ -12,6 +12,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   test:
@@ -23,8 +24,8 @@ jobs:
 
   deploy:
     needs: [build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
     uses: ./.github/workflows/deploy.yml
     with:
       image: ${{ needs.build.outputs.image }}
     secrets: inherit
-  
