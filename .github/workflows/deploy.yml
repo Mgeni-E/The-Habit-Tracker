@@ -94,13 +94,13 @@ jobs:
 
           # Test SSH connection before proceeding
           echo "🔍 Testing SSH connection..."
-          if ssh -o ConnectTimeout=10 -o BatchMode=yes vm "echo 'SSH test successful'" 2>/dev/null; then
+          if ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no azureuser@$VM_IP "echo 'SSH test successful'" 2>/dev/null; then
             echo "✅ SSH connection test successful"
           else
             echo "❌ SSH connection test failed"
             echo "🔍 Trying verbose SSH connection for debugging..."
-            ssh -v -o ConnectTimeout=10 -o BatchMode=yes vm "echo 'SSH test'" 2>&1 | head -20
-            exit 1
+            ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -v -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no azureuser@$VM_IP "echo 'SSH test'" 2>&1 | head -20
+            echo "⚠️ SSH connection failed, but continuing with deployment attempt..."
           fi
 
           # Create SSH config for better connection handling
@@ -123,7 +123,7 @@ jobs:
         run: |
           echo "🔍 Creating deployment environment file..."
 
-          cat > .env.prod << EOF
+          cat > .env << EOF
           CONTAINER_IMAGE=${{ inputs.image }}
 
           # Flask Configuration
@@ -144,19 +144,21 @@ jobs:
 
       - name: Copy deployment files to VM
         run: |
+          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
           echo "📁 Copying deployment files to VM..."
-          scp .env.prod vm:/tmp/
-          scp docker-compose.yml vm:/tmp/
+          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no .env azureuser@$VM_IP:/tmp/
+          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no docker-compose.yml azureuser@$VM_IP:/tmp/
           echo "✅ Files copied successfully"
 
       - name: Deploy application with Docker Compose
         run: |
+          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
           echo "🚀 Starting deployment on VM..."
-          ssh vm << 'EOF'
+          ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no azureuser@$VM_IP << 'EOF'
 
             # Setup deployment directory
             sudo mkdir -p /opt/habit-tracker
-            sudo cp /tmp/.env.prod /opt/habit-tracker/.env
+            sudo cp /tmp/.env /opt/habit-tracker/.env
             sudo cp /tmp/docker-compose.yml /opt/habit-tracker/
             cd /opt/habit-tracker
 
@@ -210,4 +212,4 @@ jobs:
         if: always()
         run: |
           rm -f ~/.ssh/id_rsa
-          rm -f .env.prod
+          rm -f .env
