@@ -137,6 +137,13 @@ jobs:
             exit 1
           fi
 
+          # List all available outputs for debugging
+          echo "📋 Available Terraform outputs:"
+          terraform output || {
+            echo "❌ Failed to get Terraform outputs"
+            exit 1
+          }
+
           # Get VM IP with error checking
           VM_IP=$(terraform output -raw public_ip_address 2>/dev/null || echo "")
           if [ -z "$VM_IP" ]; then
@@ -154,3 +161,9 @@ jobs:
             exit 1
           fi
           echo "✅ SSH key retrieved (length: $(echo "$SSH_KEY" | wc -c) characters)"
+
+          # Also set outputs for backward compatibility
+          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
+          echo "ssh_private_key<<EOF" >> $GITHUB_OUTPUT
+          echo "$SSH_KEY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
