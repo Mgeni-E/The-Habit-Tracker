@@ -142,6 +142,12 @@ jobs:
             echo "🔍 Checking cloud-init status..."
             sudo cloud-init status --wait || echo "⚠️ Cloud-init may still be running"
 
+            # Show cloud-init logs if there were issues
+            if ! sudo cloud-init status | grep -q "done"; then
+              echo "🔍 Cloud-init logs (last 20 lines):"
+              sudo tail -20 /var/log/cloud-init-output.log || echo "No cloud-init output log found"
+            fi
+
             # Check if Docker is installed, install if missing
             if ! command -v docker >/dev/null 2>&1; then
               echo "🐳 Docker not found, installing..."
