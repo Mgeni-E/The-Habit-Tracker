@@ -39,15 +39,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      # Azure Login removed - not needed for deployment via SSH
 
       - name: Setup SSH key
         run: |
+          echo "🔍 Debug: VM_IP='$VM_IP'"
+          echo "🔍 Debug: SSH_PRIVATE_KEY length=$(echo "$SSH_PRIVATE_KEY" | wc -c)"
+
           if [ -z "$VM_IP" ]; then
             echo "❌ VM IP is empty. Terraform apply may have failed."
+            echo "🔍 Available inputs:"
+            echo "  image: ${{ inputs.image }}"
+            echo "  vm_ip: ${{ inputs.vm_ip }}"
+            echo "  ssh_private_key length: $(echo '${{ inputs.ssh_private_key }}' | wc -c)"
             exit 1
           fi
 

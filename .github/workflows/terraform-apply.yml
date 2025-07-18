@@ -153,6 +153,7 @@ jobs:
             exit 1
           fi
           echo "✅ VM IP: $VM_IP"
+          echo "🔍 Setting output vm_ip=$VM_IP"
           echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
 
           # Get SSH private key with error checking
@@ -162,6 +163,9 @@ jobs:
             exit 1
           fi
           echo "✅ SSH key retrieved (length: $(echo "$SSH_KEY" | wc -c) characters)"
+          echo "🔍 Setting output ssh_private_key (length: $(echo "$SSH_KEY" | wc -c))"
+
+          # Set outputs
           echo "ssh_private_key<<EOF" >> $GITHUB_OUTPUT
           echo "$SSH_KEY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
