@@ -59,9 +59,34 @@ jobs:
 
           # Setup SSH directory and key
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+
+          # Write SSH key with proper formatting and newlines
+          printf "%s\n" "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+
+          # Ensure proper permissions
           chmod 600 ~/.ssh/id_rsa
           chmod 700 ~/.ssh
+
+          # Verify key format
+          echo "🔍 Verifying SSH key format..."
+          if ssh-keygen -l -f ~/.ssh/id_rsa >/dev/null 2>&1; then
+            echo "✅ SSH key format is valid"
+          else
+            echo "❌ SSH key format is invalid"
+            echo "🔍 Key starts with: $(head -1 ~/.ssh/id_rsa)"
+            echo "🔍 Key ends with: $(tail -1 ~/.ssh/id_rsa)"
+            echo "🔍 Attempting to fix key format..."
+
+            # Try to fix common formatting issues
+            sed -i 's/\\n/\n/g' ~/.ssh/id_rsa
+
+            if ssh-keygen -l -f ~/.ssh/id_rsa >/dev/null 2>&1; then
+              echo "✅ SSH key format fixed"
+            else
+              echo "❌ Could not fix SSH key format"
+              exit 1
+            fi
+          fi
 
           # Create SSH config for better connection handling
           cat > ~/.ssh/config << EOF
@@ -113,6 +138,26 @@ jobs:
         run: |
           echo "🚀 Starting deployment on VM..."
           ssh vm << 'EOF'
+            # Check cloud-init status
+            echo "🔍 Checking cloud-init status..."
+            sudo cloud-init status --wait || echo "⚠️ Cloud-init may still be running"
+
+            # Check if Docker is installed, install if missing
+            if ! command -v docker >/dev/null 2>&1; then
+              echo "🐳 Docker not found, installing..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sudo sh get-docker.sh
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker azureuser
+              echo "✅ Docker installed"
+            else
+              echo "✅ Docker is already installed"
+            fi
+
+            # Ensure Docker is running
+            sudo systemctl start docker
+
             # Setup deployment directory
             sudo mkdir -p /opt/habit-tracker
             sudo cp /tmp/.env.prod /opt/habit-tracker/
