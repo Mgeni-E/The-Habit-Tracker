@@ -60,32 +60,47 @@ jobs:
           # Setup SSH directory and key
           mkdir -p ~/.ssh
 
-          # Write SSH key with proper formatting and newlines
-          printf "%s\n" "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          # Write SSH key with proper formatting
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
 
           # Ensure proper permissions
           chmod 600 ~/.ssh/id_rsa
           chmod 700 ~/.ssh
 
-          # Verify key format
+          # Verify key format and add debugging
           echo "🔍 Verifying SSH key format..."
-          if ssh-keygen -l -f ~/.ssh/id_rsa >/dev/null 2>&1; then
+          echo "🔍 Key file size: $(wc -c < ~/.ssh/id_rsa) bytes"
+          echo "🔍 Key starts with: $(head -1 ~/.ssh/id_rsa)"
+          echo "🔍 Key ends with: $(tail -1 ~/.ssh/id_rsa)"
+
+          if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
             echo "✅ SSH key format is valid"
           else
             echo "❌ SSH key format is invalid"
-            echo "🔍 Key starts with: $(head -1 ~/.ssh/id_rsa)"
-            echo "🔍 Key ends with: $(tail -1 ~/.ssh/id_rsa)"
+            echo "🔍 Full key content (first 5 lines):"
+            head -5 ~/.ssh/id_rsa
             echo "🔍 Attempting to fix key format..."
 
             # Try to fix common formatting issues
             sed -i 's/\\n/\n/g' ~/.ssh/id_rsa
 
-            if ssh-keygen -l -f ~/.ssh/id_rsa >/dev/null 2>&1; then
+            if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
               echo "✅ SSH key format fixed"
             else
               echo "❌ Could not fix SSH key format"
               exit 1
             fi
+          fi
+
+          # Test SSH connection before proceeding
+          echo "🔍 Testing SSH connection..."
+          if ssh -o ConnectTimeout=10 -o BatchMode=yes vm "echo 'SSH test successful'" 2>/dev/null; then
+            echo "✅ SSH connection test successful"
+          else
+            echo "❌ SSH connection test failed"
+            echo "🔍 Trying verbose SSH connection for debugging..."
+            ssh -v -o ConnectTimeout=10 -o BatchMode=yes vm "echo 'SSH test'" 2>&1 | head -20
+            exit 1
           fi
 
           # Create SSH config for better connection handling
