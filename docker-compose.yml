@@ -3,9 +3,6 @@ services:
     image: ${CONTAINER_IMAGE}
     container_name: habit-tracker-app
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
       FLASK_ENV: ${FLASK_ENV}
       SECRET_KEY: ${SECRET_KEY}
