@@ -128,7 +128,6 @@ jobs:
           ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
           ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
           ARM_ACCESS_KEY: ${{ secrets.ARM_ACCESS_KEY }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           echo "🔍 Getting Terraform outputs..."
 
@@ -137,13 +136,6 @@ jobs:
             echo "❌ No Terraform state file found. Apply may have failed."
             exit 1
           fi
-
-          # List all available outputs for debugging
-          echo "📋 Available Terraform outputs:"
-          terraform output || {
-            echo "❌ Failed to get Terraform outputs"
-            exit 1
-          }
 
           # Get VM IP with error checking
           VM_IP=$(terraform output -raw public_ip_address 2>/dev/null || echo "")
@@ -162,15 +154,3 @@ jobs:
             exit 1
           fi
           echo "✅ SSH key retrieved (length: $(echo "$SSH_KEY" | wc -c) characters)"
-
-          # Set GitHub secrets for deployment
-          echo "🔧 Setting deployment secrets..."
-          echo "$VM_IP" | gh secret set DEPLOY_VM_IP
-          echo "$SSH_KEY" | gh secret set DEPLOY_SSH_KEY
-          echo "✅ Deployment secrets set successfully"
-
-          # Also set outputs for backward compatibility
-          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
-          echo "ssh_private_key<<EOF" >> $GITHUB_OUTPUT
-          echo "$SSH_KEY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
