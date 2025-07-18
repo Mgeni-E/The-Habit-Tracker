@@ -29,33 +29,11 @@ output "ssh_public_key" {
   value       = tls_private_key.ssh.public_key_openssh
 }
 
-# Network Outputs
-
-output "virtual_network_name" {
-  description = "Name of the virtual network"
-  value       = azurerm_virtual_network.main.name
-}
-
-output "web_subnet_id" {
-  description = "ID of the web subnet"
-  value       = azurerm_subnet.web.id
-}
-
-# Application URLs
+# Application URL
 
 output "application_url_http" {
   description = "HTTP URL for the application"
   value       = "http://${azurerm_public_ip.main.ip_address}"
-}
-
-output "application_url_https" {
-  description = "HTTPS URL for the application"
-  value       = "https://${azurerm_public_ip.main.ip_address}"
-}
-
-output "application_url_domain" {
-  description = "Domain URL for the application (if domain is configured)"
-  value       = var.domain_name != "" ? "https://${var.domain_name}" : "Not configured"
 }
 
 # SSH Connection Information

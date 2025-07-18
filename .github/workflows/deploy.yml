@@ -11,6 +11,12 @@ on:
         required: true
       DEPLOY_SSH_KEY:
         required: true
+      DB_HOST:
+        required: true
+      DB_PORT:
+        required: true
+      DB_NAME:
+        required: true
       DB_USER:
         required: true
       DB_PASSWORD:
@@ -18,10 +24,6 @@ on:
       SECRET_KEY:
         required: true
       FLASK_ENV:
-        required: true
-      PGADMIN_EMAIL:
-        required: true
-      PGADMIN_PASSWORD:
         required: true
 
 jobs:
@@ -36,8 +38,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # Azure Login removed - not needed for deployment via SSH
 
       - name: Setup SSH key
         run: |
@@ -109,7 +109,6 @@ jobs:
           echo "🔍 Creating deployment environment file..."
 
           cat > .env.prod << EOF
-          # Container Configuration
           CONTAINER_IMAGE=${{ inputs.image }}
 
           # Flask Configuration
@@ -117,12 +116,13 @@ jobs:
           SECRET_KEY=${{ secrets.SECRET_KEY }}
 
           # Database Configuration
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
           DB_USER=${{ secrets.DB_USER }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
 
-          # PgAdmin Configuration
-          PGADMIN_EMAIL=${{ secrets.PGADMIN_EMAIL }}
-          PGADMIN_PASSWORD=${{ secrets.PGADMIN_PASSWORD }}
+
           EOF
 
           echo "✅ Environment file created"
@@ -138,87 +138,6 @@ jobs:
         run: |
           echo "🚀 Starting deployment on VM..."
           ssh vm << 'EOF'
-            # Check cloud-init status
-            echo "🔍 Checking cloud-init status..."
-            sudo cloud-init status --wait || echo "⚠️ Cloud-init may still be running"
-
-            # Show cloud-init logs if there were issues
-            if ! sudo cloud-init status | grep -q "done"; then
-              echo "🔍 Cloud-init logs (last 20 lines):"
-              sudo tail -20 /var/log/cloud-init-output.log || echo "No cloud-init output log found"
-            fi
-
-            # Check if Docker is installed, install if missing
-            if ! command -v docker >/dev/null 2>&1; then
-              echo "🐳 Docker not found, installing..."
-              curl -fsSL https://get.docker.com -o get-docker.sh
-              sudo sh get-docker.sh
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker azureuser
-              echo "✅ Docker installed"
-            else
-              echo "✅ Docker is already installed"
-            fi
-
-            # Ensure Docker is running
-            sudo systemctl start docker
-
-            # Check if Nginx is installed, install if missing
-            if ! command -v nginx >/dev/null 2>&1; then
-              echo "🌐 Nginx not found, installing..."
-              sudo apt update
-              sudo apt install -y nginx
-              sudo systemctl start nginx
-              sudo systemctl enable nginx
-              echo "✅ Nginx installed"
-            else
-              echo "✅ Nginx is already installed"
-            fi
-
-            # Configure Nginx reverse proxy
-            echo "🔧 Configuring Nginx reverse proxy..."
-            sudo tee /etc/nginx/sites-available/habit-tracker > /dev/null << 'NGINX_EOF'
-            server {
-                listen 80;
-                server_name _;
-
-                # Main application
-                location / {
-                    proxy_pass http://localhost:5000;
-                    proxy_set_header Host \$host;
-                    proxy_set_header X-Real-IP \$remote_addr;
-                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto \$scheme;
-                }
-
-                # PgAdmin
-                location /db {
-                    proxy_pass http://localhost:8080;
-                    proxy_set_header Host \$host;
-                    proxy_set_header X-Real-IP \$remote_addr;
-                    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto \$scheme;
-                    proxy_set_header X-Script-Name /db;
-                }
-            }
-            NGINX_EOF
-
-            # Enable the site and restart nginx
-            sudo ln -sf /etc/nginx/sites-available/habit-tracker /etc/nginx/sites-enabled/
-            sudo rm -f /etc/nginx/sites-enabled/default
-            sudo nginx -t && sudo systemctl reload nginx
-            echo "✅ Nginx configured and reloaded"
-
-            # Configure UFW firewall if needed
-            if command -v ufw >/dev/null 2>&1; then
-              echo "🔥 Configuring UFW firewall..."
-              sudo ufw --force enable
-              sudo ufw allow ssh
-              sudo ufw allow http
-              sudo ufw allow https
-              echo "✅ UFW firewall configured"
-            fi
 
             # Setup deployment directory
             sudo mkdir -p /opt/habit-tracker
@@ -255,6 +174,22 @@ jobs:
             curl -f http://localhost:5000/ || exit 1
             echo "✅ Application deployed successfully with Docker Compose!"
           EOF
+
+      - name: Verify deployment
+        run: |
+          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
+          echo "🔍 Verifying deployment..."
+
+          # Test main application
+          if curl -f -s "http://$VM_IP/" >/dev/null; then
+            echo "✅ Main application is responding"
+          else
+            echo "⚠️ Main application may not be ready yet"
+          fi
+
+          echo ""
+          echo "🎉 Deployment completed!"
+          echo "📋 Application URL: http://$VM_IP/"
 
       - name: Cleanup
         if: always()

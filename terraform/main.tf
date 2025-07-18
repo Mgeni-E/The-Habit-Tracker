@@ -1,5 +1,6 @@
 terraform {
   required_version = ">= 1.0"
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -43,26 +44,17 @@ locals {
   }
 }
 
-# Random Password Generation
-resource "random_password" "admin_password" {
-  length  = 16
-  special = true
+resource "tls_private_key" "ssh" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
 }
 
-# Azure Resource Group
+# Resource Group
 
 resource "azurerm_resource_group" "main" {
   name     = "${var.project_name}-${var.environment}-rg"
   location = var.location
   tags     = local.common_tags
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes = [
-      tags["CreatedDate"],
-      tags["LastModified"]
-    ]
-  }
 }
 
 # Virtual Network and Subnets
@@ -73,14 +65,6 @@ resource "azurerm_virtual_network" "main" {
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   tags                = local.common_tags
-
-  lifecycle {
-    prevent_destroy = true
-    ignore_changes = [
-      tags["CreatedDate"],
-      tags["LastModified"]
-    ]
-  }
 }
 
 resource "azurerm_subnet" "web" {
@@ -123,19 +107,6 @@ resource "azurerm_network_security_group" "web" {
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
-
-  # HTTPS access
-  security_rule {
-    name                       = "HTTPS"
-    priority                   = 1003
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
 }
 
 resource "azurerm_subnet_network_security_group_association" "web" {
@@ -154,15 +125,6 @@ resource "azurerm_public_ip" "main" {
   tags                = local.common_tags
 }
 
-# SSH Key Pair
-
-resource "tls_private_key" "ssh" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
-# Network Interface
-
 resource "azurerm_network_interface" "main" {
   name                = "${var.project_name}-${var.environment}-nic"
   location            = azurerm_resource_group.main.location
@@ -180,15 +142,13 @@ resource "azurerm_network_interface" "main" {
 # Virtual Machine
 
 resource "azurerm_linux_virtual_machine" "main" {
-  name                = "${var.project_name}-${var.environment}-vm"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  size                = var.vm_size
-  admin_username      = var.admin_username
-  tags                = local.common_tags
-
-  # Disable password authentication
+  name                            = "${var.project_name}-${var.environment}-vm"
+  location                        = azurerm_resource_group.main.location
+  resource_group_name             = azurerm_resource_group.main.name
+  size                            = var.vm_size
+  admin_username                  = var.admin_username
   disable_password_authentication = true
+  tags                            = local.common_tags
 
   network_interface_ids = [
     azurerm_network_interface.main.id,

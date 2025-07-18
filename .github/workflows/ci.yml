@@ -22,13 +22,8 @@ jobs:
     needs: test
     uses: ./.github/workflows/build.yml
 
-  terraform-apply:
-    needs: build
-    uses: ./.github/workflows/terraform-apply.yml
-    secrets: inherit
-
   deploy:
-    needs: [build, terraform-apply]
+    needs: [build]
     uses: ./.github/workflows/deploy.yml
     with:
       image: ${{ needs.build.outputs.image }}
