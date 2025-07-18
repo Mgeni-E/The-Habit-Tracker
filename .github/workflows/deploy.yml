@@ -94,12 +94,12 @@ jobs:
 
           # Test SSH connection before proceeding
           echo "🔍 Testing SSH connection..."
-          if ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no azureuser@$VM_IP "echo 'SSH test successful'" 2>/dev/null; then
+          if ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP "echo 'SSH test successful'" 2>/dev/null; then
             echo "✅ SSH connection test successful"
           else
             echo "❌ SSH connection test failed"
             echo "🔍 Trying verbose SSH connection for debugging..."
-            ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -v -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no azureuser@$VM_IP "echo 'SSH test'" 2>&1 | head -20
+            ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -v -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP "echo 'SSH test'" 2>&1 | head -20
             echo "⚠️ SSH connection failed, but continuing with deployment attempt..."
           fi
 
@@ -146,15 +146,15 @@ jobs:
         run: |
           VM_IP="${{ secrets.DEPLOY_VM_IP }}"
           echo "📁 Copying deployment files to VM..."
-          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no .env azureuser@$VM_IP:/tmp/
-          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no docker-compose.yml azureuser@$VM_IP:/tmp/
+          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no .env mgenielvin2022@gmail.com@$VM_IP:/tmp/
+          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no docker-compose.yml mgenielvin2022@gmail.com@$VM_IP:/tmp/
           echo "✅ Files copied successfully"
 
       - name: Deploy application with Docker Compose
         run: |
           VM_IP="${{ secrets.DEPLOY_VM_IP }}"
           echo "🚀 Starting deployment on VM..."
-          ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no azureuser@$VM_IP << 'EOF'
+          ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP << 'EOF'
 
             # Setup deployment directory
             sudo mkdir -p /opt/habit-tracker
