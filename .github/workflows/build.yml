@@ -9,7 +9,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   docker-build:
@@ -27,6 +26,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Generate lowercase image name
+        id: image-name
+        run: |
+          IMAGE_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image-name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "full-image=${{ env.REGISTRY }}/$IMAGE_NAME" >> $GITHUB_OUTPUT
+
       - name: Log in to Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -39,7 +45,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.image-name.outputs.full-image }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -61,4 +67,4 @@ jobs:
 
       - name: Output image
         id: image
-        run: echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+        run: echo "image=${{ steps.image-name.outputs.full-image }}:sha-${{ github.sha }}" >> $GITHUB_OUTPUT
