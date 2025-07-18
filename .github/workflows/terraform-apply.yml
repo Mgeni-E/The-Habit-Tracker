@@ -153,8 +153,6 @@ jobs:
             exit 1
           fi
           echo "✅ VM IP: $VM_IP"
-          echo "🔍 Setting output vm_ip=$VM_IP"
-          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
 
           # Get SSH private key with error checking
           SSH_KEY=$(terraform output -raw ssh_private_key 2>/dev/null || echo "")
@@ -163,9 +161,15 @@ jobs:
             exit 1
           fi
           echo "✅ SSH key retrieved (length: $(echo "$SSH_KEY" | wc -c) characters)"
-          echo "🔍 Setting output ssh_private_key (length: $(echo "$SSH_KEY" | wc -c))"
 
-          # Set outputs
+          # Set GitHub secrets for deployment
+          echo "🔧 Setting deployment secrets..."
+          echo "$VM_IP" | gh secret set DEPLOY_VM_IP
+          echo "$SSH_KEY" | gh secret set DEPLOY_SSH_KEY
+          echo "✅ Deployment secrets set successfully"
+
+          # Also set outputs for backward compatibility
+          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
           echo "ssh_private_key<<EOF" >> $GITHUB_OUTPUT
           echo "$SSH_KEY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

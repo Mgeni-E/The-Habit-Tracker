@@ -6,13 +6,11 @@ on:
       image:
         required: true
         type: string
-      vm_ip:
-        required: true
-        type: string
-      ssh_private_key:
-        required: true
-        type: string
     secrets:
+      DEPLOY_VM_IP:
+        required: true
+      DEPLOY_SSH_KEY:
+        required: true
       DB_USER:
         required: true
       DB_PASSWORD:
@@ -32,8 +30,8 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     environment: production
     env:
-      VM_IP: ${{ inputs.vm_ip }}
-      SSH_PRIVATE_KEY: ${{ inputs.ssh_private_key }}
+      VM_IP: ${{ secrets.DEPLOY_VM_IP }}
+      SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 
     steps:
       - name: Checkout code
@@ -43,20 +41,16 @@ jobs:
 
       - name: Setup SSH key
         run: |
-          echo "🔍 Debug: VM_IP='$VM_IP'"
-          echo "🔍 Debug: SSH_PRIVATE_KEY length=$(echo "$SSH_PRIVATE_KEY" | wc -c)"
+          echo "🔍 VM IP: $VM_IP"
+          echo "🔍 SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
 
           if [ -z "$VM_IP" ]; then
-            echo "❌ VM IP is empty. Terraform apply may have failed."
-            echo "🔍 Available inputs:"
-            echo "  image: ${{ inputs.image }}"
-            echo "  vm_ip: ${{ inputs.vm_ip }}"
-            echo "  ssh_private_key length: $(echo '${{ inputs.ssh_private_key }}' | wc -c)"
+            echo "❌ VM IP is empty. Check DEPLOY_VM_IP secret."
             exit 1
           fi
 
           if [ -z "$SSH_PRIVATE_KEY" ]; then
-            echo "❌ SSH private key is empty. Terraform apply may have failed."
+            echo "❌ SSH private key is empty. Check DEPLOY_SSH_KEY secret."
             exit 1
           fi
 
