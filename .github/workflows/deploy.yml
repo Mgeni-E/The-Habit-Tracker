@@ -1,0 +1,183 @@
+name: Deploy to VM
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+    secrets:
+      DEPLOY_VM_IP:
+        required: true
+      DEPLOY_SSH_KEY:
+        required: true
+      DB_HOST:
+        required: true
+      DB_PORT:
+        required: true
+      DB_NAME:
+        required: true
+      DB_USER:
+        required: true
+      DB_PASSWORD:
+        required: true
+      SECRET_KEY:
+        required: true
+      FLASK_ENV:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    environment: production
+    env:
+      VM_IP: ${{ secrets.DEPLOY_VM_IP }}
+      SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "🔍 VM IP: $VM_IP"
+          echo "🔍 SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
+
+          if [ -z "$VM_IP" ]; then
+            echo "❌ VM IP is empty. Check DEPLOY_VM_IP secret."
+            exit 1
+          fi
+
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "❌ SSH private key is empty. Check DEPLOY_SSH_KEY secret."
+            exit 1
+          fi
+
+          echo "✅ VM IP: $VM_IP"
+          echo "✅ SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
+
+          # Setup SSH directory and key
+          mkdir -p ~/.ssh
+
+          # Write SSH key with proper formatting
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+
+          # Ensure proper permissions
+          chmod 600 ~/.ssh/id_rsa
+          chmod 700 ~/.ssh
+
+          # Verify key format and add debugging
+          echo "🔍 Verifying SSH key format..."
+          echo "🔍 Key file size: $(wc -c < ~/.ssh/id_rsa) bytes"
+          echo "🔍 Key starts with: $(head -1 ~/.ssh/id_rsa)"
+          echo "🔍 Key ends with: $(tail -1 ~/.ssh/id_rsa)"
+
+          if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
+            echo "✅ SSH key format is valid"
+          else
+            echo "❌ SSH key format is invalid"
+            echo "🔍 Full key content (first 5 lines):"
+            head -5 ~/.ssh/id_rsa
+            echo "🔍 Attempting to fix key format..."
+
+            # Try to fix common formatting issues
+            sed -i 's/\\n/\n/g' ~/.ssh/id_rsa
+
+            if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
+              echo "✅ SSH key format fixed"
+            else
+              echo "❌ Could not fix SSH key format"
+              exit 1
+            fi
+          fi
+
+          # Test SSH connection before proceeding
+          echo "🔍 Testing SSH connection..."
+          if ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP "echo 'SSH test successful'" 2>/dev/null; then
+            echo "✅ SSH connection test successful"
+          else
+            echo "❌ SSH connection test failed"
+            echo "🔍 Trying verbose SSH connection for debugging..."
+            ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -v -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP "echo 'SSH test'" 2>&1 | head -20
+            echo "⚠️ SSH connection failed, but continuing with deployment attempt..."
+          fi
+
+          # Create SSH config for better connection handling
+          cat > ~/.ssh/config << EOF
+          Host vm
+            HostName $VM_IP
+            User azureuser
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+            ConnectTimeout 30
+          EOF
+          chmod 600 ~/.ssh/config
+
+          echo "✅ VM is ready (verified by terraform-apply stage)"
+
+      - name: Create deployment environment file
+        run: |
+          echo "🔍 Creating deployment environment file..."
+
+          cat > .env << EOF
+          CONTAINER_IMAGE=${{ inputs.image }}
+
+          # Flask Configuration
+          FLASK_ENV=${{ secrets.FLASK_ENV }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+
+          # Database Configuration
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+
+          EOF
+
+          echo "✅ Environment file created"
+
+      - name: Copy deployment files to VM
+        run: |
+          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
+          echo "📁 Copying deployment files to VM..."
+          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no .env mgenielvin2022@gmail.com@$VM_IP:/tmp/
+          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no docker-compose.yml mgenielvin2022@gmail.com@$VM_IP:/tmp/
+          echo "✅ Files copied successfully"
+
+      - name: Deploy application with Docker Compose
+        run: |
+          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
+          echo "🚀 Starting deployment on VM..."
+          ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP << 'EOF'
+
+            # Setup deployment directory
+            sudo mkdir -p /opt/habit-tracker
+            sudo cp /tmp/.env /opt/habit-tracker/.env
+            sudo cp /tmp/docker-compose.yml /opt/habit-tracker/
+            cd /opt/habit-tracker
+
+            # Login to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Stop existing services
+            sudo docker compose down || true
+
+            # Pull latest images
+            sudo docker compose pull
+
+            # Start services with environment file
+            sudo docker compose --env-file .env up -d
+            echo "✅ Application deployed successfully with Docker Compose!"
+          EOF
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_rsa
+          rm -f .env

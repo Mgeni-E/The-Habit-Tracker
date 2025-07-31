@@ -1,10 +1,8 @@
 name: Docker CI/CD Pipeline
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
 
 permissions:
   contents: read
@@ -20,21 +18,12 @@ jobs:
 
   build:
     needs: test
-    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/build.yml
 
-  deploy-staging:
-    needs: build
-    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
-    uses: ./.github/workflows/deploy-staging.yml
-    with:
-      image: ${{ needs.build.outputs.image }}
-    secrets: inherit
-
-  deploy-production:
+  deploy:
     needs: build
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
-    uses: ./.github/workflows/deploy-production.yml
+    uses: ./.github/workflows/deploy.yml
     with:
       image: ${{ needs.build.outputs.image }}
     secrets: inherit

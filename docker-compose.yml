@@ -1,0 +1,29 @@
+services:
+  app:
+    image: ${CONTAINER_IMAGE}
+    container_name: habit-tracker-app
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: ${FLASK_ENV}
+      SECRET_KEY: ${SECRET_KEY}
+      DB_HOST: habit-tracker-postgres
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - db-network
+
+networks:
+  db-network:
+    external: true
