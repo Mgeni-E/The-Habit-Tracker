@@ -20,7 +20,8 @@ terraform {
     resource_group_name  = "terraform-state-rg"
     storage_account_name = "tfstate5190e1d3"
     container_name       = "tfstate"
-    key                  = "habit-tracker.terraform.tfstate"
+    # Note: The key should be set via terraform init -backend-config="key=habit-tracker-{environment}.terraform.tfstate"
+    # This allows different environments to have separate state files
   }
 }
 

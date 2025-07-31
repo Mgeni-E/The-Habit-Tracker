@@ -1,4 +1,4 @@
-name: Deploy to VM
+name: Deploy to Production
 
 on:
   workflow_call:
@@ -29,7 +29,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     environment: production
     env:
       VM_IP: ${{ secrets.DEPLOY_VM_IP }}
@@ -41,7 +40,7 @@ jobs:
 
       - name: Setup SSH key
         run: |
-          echo "🔍 VM IP: $VM_IP"
+          echo "🔍 Production VM IP: $VM_IP"
           echo "🔍 SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
 
           if [ -z "$VM_IP" ]; then
@@ -54,7 +53,7 @@ jobs:
             exit 1
           fi
 
-          echo "✅ VM IP: $VM_IP"
+          echo "✅ Production VM IP: $VM_IP"
           echo "✅ SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
 
           # Setup SSH directory and key
@@ -67,45 +66,18 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           chmod 700 ~/.ssh
 
-          # Verify key format and add debugging
+          # Verify key format
           echo "🔍 Verifying SSH key format..."
-          echo "🔍 Key file size: $(wc -c < ~/.ssh/id_rsa) bytes"
-          echo "🔍 Key starts with: $(head -1 ~/.ssh/id_rsa)"
-          echo "🔍 Key ends with: $(tail -1 ~/.ssh/id_rsa)"
-
           if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
             echo "✅ SSH key format is valid"
           else
             echo "❌ SSH key format is invalid"
-            echo "🔍 Full key content (first 5 lines):"
-            head -5 ~/.ssh/id_rsa
-            echo "🔍 Attempting to fix key format..."
-
-            # Try to fix common formatting issues
-            sed -i 's/\\n/\n/g' ~/.ssh/id_rsa
-
-            if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
-              echo "✅ SSH key format fixed"
-            else
-              echo "❌ Could not fix SSH key format"
-              exit 1
-            fi
-          fi
-
-          # Test SSH connection before proceeding
-          echo "🔍 Testing SSH connection..."
-          if ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP "echo 'SSH test successful'" 2>/dev/null; then
-            echo "✅ SSH connection test successful"
-          else
-            echo "❌ SSH connection test failed"
-            echo "🔍 Trying verbose SSH connection for debugging..."
-            ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -v -o ConnectTimeout=10 -o BatchMode=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP "echo 'SSH test'" 2>&1 | head -20
-            echo "⚠️ SSH connection failed, but continuing with deployment attempt..."
+            exit 1
           fi
 
           # Create SSH config for better connection handling
           cat > ~/.ssh/config << EOF
-          Host vm
+          Host production-vm
             HostName $VM_IP
             User azureuser
             IdentityFile ~/.ssh/id_rsa
@@ -117,11 +89,11 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-          echo "✅ VM is ready (verified by terraform-apply stage)"
+          echo "✅ Production VM SSH setup complete"
 
-      - name: Create deployment environment file
+      - name: Create production environment file
         run: |
-          echo "🔍 Creating deployment environment file..."
+          echo "🔍 Creating production environment file..."
 
           cat > .env << EOF
           CONTAINER_IMAGE=${{ inputs.image }}
@@ -137,24 +109,21 @@ jobs:
           DB_USER=${{ secrets.DB_USER }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
 
-
           EOF
 
-          echo "✅ Environment file created"
+          echo "✅ Production environment file created"
 
-      - name: Copy deployment files to VM
+      - name: Copy deployment files to production VM
         run: |
-          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
-          echo "📁 Copying deployment files to VM..."
-          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no .env mgenielvin2022@gmail.com@$VM_IP:/tmp/
-          scp -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no docker-compose.yml mgenielvin2022@gmail.com@$VM_IP:/tmp/
-          echo "✅ Files copied successfully"
+          echo "📁 Copying deployment files to production VM..."
+          scp -F ~/.ssh/config .env production-vm:/tmp/
+          scp -F ~/.ssh/config docker-compose.yml production-vm:/tmp/
+          echo "✅ Files copied successfully to production"
 
-      - name: Deploy application with Docker Compose
+      - name: Deploy application to production
         run: |
-          VM_IP="${{ secrets.DEPLOY_VM_IP }}"
-          echo "🚀 Starting deployment on VM..."
-          ssh -i ~/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=no mgenielvin2022@gmail.com@$VM_IP << 'EOF'
+          echo "🚀 Starting production deployment..."
+          ssh -F ~/.ssh/config production-vm << 'EOF'
 
             # Setup deployment directory
             sudo mkdir -p /opt/habit-tracker
@@ -173,11 +142,29 @@ jobs:
 
             # Start services with environment file
             sudo docker compose --env-file .env up -d
-            echo "✅ Application deployed successfully with Docker Compose!"
+
+            echo "✅ Production application deployed successfully!"
+
+            # Show running containers
+            echo "📋 Running containers:"
+            sudo docker compose ps
           EOF
+
+      - name: Verify production deployment
+        run: |
+          echo "🔍 Verifying production deployment..."
+          sleep 30  # Wait for services to start
+
+          # Test if the application is responding
+          if curl -f -s --connect-timeout 10 http://${{ secrets.DEPLOY_VM_IP }} > /dev/null; then
+            echo "✅ Production application is responding"
+          else
+            echo "⚠️ Production application may still be starting up"
+          fi
 
       - name: Cleanup
         if: always()
         run: |
           rm -f ~/.ssh/id_rsa
+          rm -f ~/.ssh/config
           rm -f .env
