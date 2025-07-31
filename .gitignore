@@ -1,0 +1,9 @@
+habit-tracker/.env
+habit-tracker/__pycache__/
+habit-tracker/app/__pycache__/
+habit-tracker/app/models/__pycache__/
+habit-tracker/tests/__pycache__/
+habit-tracker/app/forms/__pycache__/
+habit-tracker/app/routes/__pycache__/
+terraform/.terraform/
+terraform/.terraform.lock.hcl
