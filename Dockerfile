@@ -1,4 +1,4 @@
-FROM python:3.11-slim as base
+FROM python:3.12-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Stage 2: Dependencies installation with caching
-FROM base as dependencies
+FROM base AS dependencies
 
 # Set working directory
 WORKDIR /app
@@ -28,19 +28,8 @@ COPY habit-tracker/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Stage 3: Development dependencies (optional)
-FROM dependencies as development
-
-# Install additional development tools
-RUN pip install --no-cache-dir \
-    pytest \
-    pytest-cov \
-    black \
-    flake8 \
-    mypy
-
-# Stage 4: Application build
-FROM dependencies as builder
+# Stage 3: Application build
+FROM dependencies AS builder
 
 # Copy application code
 COPY habit-tracker/ ./habit-tracker/
@@ -48,8 +37,8 @@ COPY habit-tracker/ ./habit-tracker/
 # Create necessary directories
 RUN mkdir -p /app/instance
 
-# Stage 5: Production runtime
-FROM python:3.11-slim as production
+# Stage 4: Production runtime
+FROM python:3.12-slim AS production
 
 # Set environment variables for production
 ENV FLASK_APP=run.py \
@@ -73,7 +62,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 WORKDIR /app/habit-tracker
 
 # Copy Python dependencies from builder stage
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
