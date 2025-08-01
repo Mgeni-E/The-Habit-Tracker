@@ -126,11 +126,8 @@ jobs:
           ssh -F ~/.ssh/config staging-vm << 'EOF'
 
             # Setup deployment directory
-            sudo mkdir -p /opt/habit-tracker-staging
-            sudo cp /tmp/.env /opt/habit-tracker-staging/.env
-            sudo cp /tmp/docker-compose.yml /opt/habit-tracker-staging/
-            cd /opt/habit-tracker-staging
-
+            cd /tmp
+            
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
