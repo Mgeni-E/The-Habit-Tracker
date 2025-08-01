@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - develop
+  pull_request: {}
 
 permissions:
   contents: read
@@ -16,7 +17,7 @@ env:
 
 jobs:
   test:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     uses: ./.github/workflows/test.yml
 
   build:
