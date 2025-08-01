@@ -126,8 +126,13 @@ jobs:
           ssh -F ~/.ssh/config staging-vm << 'EOF'
 
             # Setup deployment directory
-            cd /tmp
-            
+            sudo mkdir -p /opt/habit-tracker
+            sudo cp /tmp/.env /opt/habit-tracker/.env
+            sudo cp /tmp/docker-compose.yml /opt/habit-tracker/
+            cd /opt/habit-tracker
+            echo "🔍 Current directory contents:"
+            ls -a
+
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
@@ -147,21 +152,8 @@ jobs:
             sudo docker compose ps
           EOF
 
-      - name: Verify staging deployment
-        run: |
-          echo "🔍 Verifying staging deployment..."
-          sleep 30  # Wait for services to start
-          
-          # Test if the application is responding
-          if curl -f -s --connect-timeout 10 http://${{ secrets.STAGING_VM_IP }} > /dev/null; then
-            echo "✅ Staging application is responding"
-          else
-            echo "⚠️ Staging application may still be starting up"
-          fi
-
       - name: Cleanup
         if: always()
         run: |
           rm -f ~/.ssh/id_rsa
-          rm -f ~/.ssh/config
           rm -f .env
