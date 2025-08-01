@@ -1,0 +1,159 @@
+name: Deploy to Staging
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+    secrets:
+      STAGING_VM_IP:
+        required: true
+      STAGING_SSH_KEY:
+        required: true
+      STAGING_DB_HOST:
+        required: true
+      STAGING_DB_PORT:
+        required: true
+      STAGING_DB_NAME:
+        required: true
+      STAGING_DB_USER:
+        required: true
+      STAGING_DB_PASSWORD:
+        required: true
+      STAGING_SECRET_KEY:
+        required: true
+      STAGING_FLASK_ENV:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      VM_IP: ${{ secrets.STAGING_VM_IP }}
+      SSH_PRIVATE_KEY: ${{ secrets.STAGING_SSH_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          echo "🔍 Staging VM IP: $VM_IP"
+          echo "🔍 SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
+
+          if [ -z "$VM_IP" ]; then
+            echo "❌ VM IP is empty. Check STAGING_VM_IP secret."
+            exit 1
+          fi
+
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "❌ SSH private key is empty. Check STAGING_SSH_KEY secret."
+            exit 1
+          fi
+
+          echo "✅ Staging VM IP: $VM_IP"
+          echo "✅ SSH key length: $(echo "$SSH_PRIVATE_KEY" | wc -c) characters"
+
+          # Setup SSH directory and key
+          mkdir -p ~/.ssh
+
+          # Write SSH key with proper formatting
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+
+          # Ensure proper permissions
+          chmod 600 ~/.ssh/id_rsa
+          chmod 700 ~/.ssh
+
+          # Verify key format
+          echo "🔍 Verifying SSH key format..."
+          if ssh-keygen -l -f ~/.ssh/id_rsa 2>/dev/null; then
+            echo "✅ SSH key format is valid"
+          else
+            echo "❌ SSH key format is invalid"
+            exit 1
+          fi
+
+          # Create SSH config for better connection handling
+          cat > ~/.ssh/config << EOF
+          Host staging-vm
+            HostName $VM_IP
+            User azureuser
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+            ConnectTimeout 30
+          EOF
+          chmod 600 ~/.ssh/config
+
+          echo "✅ Staging VM SSH setup complete"
+
+      - name: Create staging environment file
+        run: |
+          echo "🔍 Creating staging environment file..."
+
+          cat > .env << EOF
+          CONTAINER_IMAGE=${{ inputs.image }}
+
+          # Flask Configuration
+          FLASK_ENV=${{ secrets.STAGING_FLASK_ENV }}
+          SECRET_KEY=${{ secrets.STAGING_SECRET_KEY }}
+
+          # Database Configuration
+          DB_HOST=${{ secrets.STAGING_DB_HOST }}
+          DB_PORT=${{ secrets.STAGING_DB_PORT }}
+          DB_NAME=${{ secrets.STAGING_DB_NAME }}
+          DB_USER=${{ secrets.STAGING_DB_USER }}
+          DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
+
+          EOF
+
+          echo "✅ Staging environment file created"
+
+      - name: Copy deployment files to staging VM
+        run: |
+          echo "📁 Copying deployment files to staging VM..."
+          scp -F ~/.ssh/config .env staging-vm:/tmp/
+          scp -F ~/.ssh/config docker-compose.yml staging-vm:/tmp/
+          echo "✅ Files copied successfully to staging"
+
+      - name: Deploy application to staging
+        run: |
+          echo "🚀 Starting staging deployment..."
+          ssh -F ~/.ssh/config staging-vm << 'EOF'
+
+            # Setup deployment directory
+            sudo mkdir -p /opt/habit-tracker
+            sudo cp /tmp/.env /opt/habit-tracker/.env
+            sudo cp /tmp/docker-compose.yml /opt/habit-tracker/
+            cd /opt/habit-tracker
+            echo "🔍 Current directory contents:"
+            ls -a
+
+            # Login to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Stop existing services
+            sudo docker compose down || true
+
+            # Pull latest images
+            sudo docker compose pull
+
+            # Start services with environment file
+            sudo docker compose --env-file .env up -d
+            
+            echo "✅ Staging application deployed successfully!"
+            
+            # Show running containers
+            echo "📋 Running containers:"
+            sudo docker compose ps
+          EOF
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/id_rsa
+          rm -f .env
