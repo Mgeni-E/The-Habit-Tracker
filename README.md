@@ -2,6 +2,10 @@
 
 A Flask-based habit tracking application with PostgreSQL database, using Gunicorn WSGI server for production deployment.
 
+Live URLs 
+production: http://4.221.137.82
+stagin: http://4.221.172.174
+
 ## Features
 
 - Create, read, update, and delete habits
