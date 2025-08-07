@@ -7,7 +7,7 @@ production: http://4.221.137.82
 stagin: http://4.221.172.174
 
 ## Features
-
+ ## CHECKING IF THE PIPELINE WORKS CORRECTLY 
 - Create, read, update, and delete habits
 - Track habit completion with dates
 - Clean, responsive UI with Bootstrap
