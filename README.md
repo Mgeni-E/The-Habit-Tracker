@@ -6,6 +6,10 @@ Live URLs
 production: http://4.221.137.82
 stagin: http://4.221.172.174
 
+VIDEO DEMONSTRATION
+https://www.loom.com/share/3fdf0f7cefde4e6785deae29a56ee467?sid=29d442d5-2fc4-4755-bd0e-77c65796d0c8
+
+
 ## Features
 
 - Create, read, update, and delete habits
