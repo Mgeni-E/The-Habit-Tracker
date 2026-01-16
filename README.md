@@ -11,7 +11,7 @@ https://www.loom.com/share/3fdf0f7cefde4e6785deae29a56ee467?sid=29d442d5-2fc4-47
 
 
 ## Features
-
+ ## CHECKING IF THE PIPELINE WORKS CORRECTLY 
 - Create, read, update, and delete habits
 - Track habit completion with dates
 - Clean, responsive UI with Bootstrap
